@@ -23,6 +23,22 @@ constexpr uint32_t kLinkReadyConfirmMs = 250;
 constexpr uint32_t kLinkOfflineConfirmMs = 750;
 constexpr float kDegreesPerSecondPerRpm = 360.0f / 60.0f;
 
+float shapeJoystickInput(float value) {
+  float magnitude = fabsf(value);
+  if (magnitude == 0.0f) {
+    return 0.0f;
+  }
+
+  // Blend a small linear component with a squared response so that
+  // tiny joystick motions yield very fine manual rates while full
+  // deflection still reaches the maximum speed. This gives short,
+  // quick adjustments a more incremental feel.
+  constexpr float kLinearBlend = 0.25f;
+  float shapedMagnitude =
+      kLinearBlend * magnitude + (1.0f - kLinearBlend) * magnitude * magnitude;
+  return (value < 0.0f) ? -shapedMagnitude : shapedMagnitude;
+}
+
 void initDebugSerial() {
   Serial.begin(config::USB_DEBUG_BAUD);
   delay(50);
@@ -98,8 +114,10 @@ void loop() {
   if (panningMaxSpeed > 0.0f) {
     manualMaxRpm = panningMaxSpeed / kDegreesPerSecondPerRpm;
   }
-  motion::setManualRate(Axis::Az, azInput * manualMaxRpm);
-  motion::setManualRate(Axis::Alt, altInput * manualMaxRpm);
+  float shapedAzInput = shapeJoystickInput(azInput);
+  float shapedAltInput = shapeJoystickInput(altInput);
+  motion::setManualRate(Axis::Az, shapedAzInput * manualMaxRpm);
+  motion::setManualRate(Axis::Alt, shapedAltInput * manualMaxRpm);
 
   if (systemState.gotoActive) {
     if (input::consumeJoystickPress()) {
