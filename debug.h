@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 
+#include "role_config.h"
+
 namespace debug {
 
 #if defined(DEVICE_ROLE_HID)
