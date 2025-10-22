@@ -9,6 +9,7 @@
 #include "catalog.h"
 #include "comm.h"
 #include "config.h"
+#include "debug.h"
 #include "display_menu.h"
 #include "input.h"
 #include "motion.h"
@@ -42,19 +43,26 @@ float shapeJoystickInput(float value) {
 void initDebugSerial() {
   Serial.begin(config::USB_DEBUG_BAUD);
   delay(50);
+  debug::init();
   Serial.println("[HID] Boot");
+  debug::printStartupSummary();
+  debug::recordEvent("boot");
 }
 }
 
 void setup() {
   initDebugSerial();
+  debug::recordEvent("setup_start");
   wifi_ota::init();
+  debug::recordEvent("wifi_ota_init");
   comm::initLink();
+  debug::recordEvent("comm_init");
 
   display_menu::init();
   display_menu::showBootMessage();
 
   storage::init();
+  debug::recordEvent("storage_init");
   systemState.polarAligned = storage::getConfig().polarAligned;
   systemState.selectedCatalogIndex = -1;
   systemState.selectedCatalogTypeIndex = -1;
@@ -62,6 +70,7 @@ void setup() {
   systemState.manualCommandOk = false;
 
   input::init();
+  debug::recordEvent("input_init");
   if (storage::getConfig().joystickCalibrated) {
     input::setJoystickCalibration(storage::getConfig().joystickCalibration);
   } else {
@@ -73,13 +82,17 @@ void setup() {
   }
 
   motion::init();
+  debug::recordEvent("motion_init");
   motion::applyCalibration(storage::getConfig().axisCalibration);
   motion::setBacklash(storage::getConfig().backlash);
   display_menu::prepareStartupLockPrompt(systemState.polarAligned);
   display_menu::showReady();
   display_menu::startTask();
 
+  debug::recordEvent("display_ready");
+
   comm::waitForReady(5000);
+  debug::recordEvent("wait_for_ready_done");
   g_mountLinkReady = comm::isLinkActive();
   if (Serial) {
     Serial.println(g_mountLinkReady ? "[HID] Mount link ready"
@@ -97,9 +110,14 @@ void setup() {
 }
 
 void loop() {
+  uint32_t loopStart = millis();
+  debug::recordLoop(loopStart);
+  debug::recordEvent("loop_start", loopStart);
   comm::updateLink();
+  debug::recordEvent("loop_after_comm");
   display_menu::update();
   display_menu::handleInput();
+  debug::recordEvent("loop_after_ui");
 
   float azInput = input::getJoystickNormalizedX();
   float altInput = input::getJoystickNormalizedY();
@@ -118,6 +136,7 @@ void loop() {
   float shapedAltInput = shapeJoystickInput(altInput);
   motion::setManualRate(Axis::Az, shapedAzInput * manualMaxRpm);
   motion::setManualRate(Axis::Alt, shapedAltInput * manualMaxRpm);
+  debug::recordEvent("loop_after_manual");
 
   if (systemState.gotoActive) {
     if (input::consumeJoystickPress()) {
@@ -139,6 +158,7 @@ void loop() {
       linkActive = comm::isLinkActive();
     }
   }
+  debug::recordEvent("loop_after_link_poll");
   uint32_t nowMs = millis();
   if (linkActive) {
     g_linkInactiveSinceMs = 0;
@@ -154,6 +174,7 @@ void loop() {
         if (Serial) {
           Serial.println("[HID] Mount link re-established");
         }
+        debug::recordEvent("link_reestablished");
       }
     } else {
       g_linkActiveSinceMs = 0;
@@ -171,12 +192,14 @@ void loop() {
         if (Serial) {
           Serial.println("[HID] Mount link lost");
         }
+        debug::recordEvent("link_lost");
       }
     }
   }
   systemState.mountLinkReady = g_mountLinkReady;
 
   wifi_ota::update();
+  debug::recordEvent("loop_before_delay");
   delay(20);
 }
 

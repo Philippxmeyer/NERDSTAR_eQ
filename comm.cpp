@@ -12,6 +12,7 @@
 #endif
 
 #include "Comms.h"
+#include "debug.h"
 
 namespace {
 
@@ -220,6 +221,7 @@ bool call(const char* command, std::initializer_list<String> params,
   }
   String lastError = "Timeout";
   for (uint8_t attempt = 0; attempt < kMaxCallRetries; ++attempt) {
+    debug::recordCommAttempt(command);
     if (payload) {
       payload->clear();
     }
@@ -281,6 +283,7 @@ bool call(const char* command, std::initializer_list<String> params,
         if (payload) {
           payload->assign(fields.begin() + 3, fields.end());
         }
+        debug::recordCommSuccess(command);
         return true;
       }
       if (fields.size() > 3) {
@@ -300,6 +303,11 @@ bool call(const char* command, std::initializer_list<String> params,
 
   if (error) {
     *error = lastError;
+  }
+  debug::recordCommFailure(command, lastError.c_str());
+  if (Serial) {
+    Serial.printf("[COMM] Command %s failed after %u attempts: %s\n", command,
+                  static_cast<unsigned>(kMaxCallRetries), lastError.c_str());
   }
   return false;
 }

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "comm.h"
+#include "debug.h"
 #include "state.h"
 
 namespace {
@@ -31,8 +32,17 @@ size_t axisIndex(Axis axis) { return (axis == Axis::Az) ? 0 : 1; }
 
 bool callAndUpdate(const char* command, std::initializer_list<String> params,
                    std::vector<String>* payload = nullptr) {
-  bool success = comm::call(command, params, payload);
+  String error;
+  bool success = comm::call(command, params, payload, &error);
   systemState.manualCommandOk = success;
+  if (!success) {
+    if (Serial) {
+      Serial.printf("[MOTION] %s failed: %s\n", command,
+                    error.isEmpty() ? "<unknown>" : error.c_str());
+    }
+    String event = String("rpc_fail_") + command;
+    debug::recordEvent(event.c_str());
+  }
   return success;
 }
 
