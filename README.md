@@ -59,8 +59,8 @@ und irgendwann sagen: „Lauf, kleiner ESP, lauf mit den Sternen.“
 | **ESP32-WROOM (HID)**  | Display, Eingaben, EEPROM-Katalog    | UART2 TX (17) ↔ Main-RX, UART2 RX (16) ↔ Main-TX |
 | **TMC2209 (Azimut)**   | Dreht um die Azimut-Achse           | STEP 25, DIR 26, EN 27, MS1/MS2 via Pull-up = 1/16 µSteps |
 | **TMC2209 (Höhe)**     | Dreht um die Höhen-Achse            | STEP 13, DIR 12, EN 14, MS1/MS2 via Pull-up = 1/16 µSteps |
-| **OLED (SSD1306)**     | Zeigt alles an, außer Mitleid       | I²C: SDA 21, SCL 22 (HID-ESP32-WROOM) |
-| **RTC (DS3231)**       | Sagt dir, wann du’s verpasst hast   | I²C: SDA 21, SCL 22 (HID-ESP32-WROOM) |
+| **OLED (SSD1306)**     | Zeigt alles an, außer Mitleid       | I²C: SDA 22, SCL 21 (HID-ESP32-WROOM) |
+| **RTC (DS3231)**       | Sagt dir, wann du’s verpasst hast   | I²C: SDA 22, SCL 21 (HID-ESP32-WROOM) |
 | **Joystick (KY-023)**  | Steuert alles intuitiv falsch herum | VRx 34, VRy 35, SW 27 (HID-ESP32-WROOM) |
 | **Rotary-Encoder**     | Menü & Bestätigungen                | A = 18, B = 19, Button = 23 (HID-ESP32-WROOM) |
 

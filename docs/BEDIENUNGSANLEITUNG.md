@@ -26,7 +26,7 @@ Diese Anleitung führt dich Schritt für Schritt durch Inbetriebnahme und Bedien
      - PDN/UART (MS1) & MS2 der TMC2209 mit Pull-ups (z. B. 10 kΩ nach VIO) auf HIGH legen → 1/16 Mikroschritt fest eingestellt
      - Gemeinsame Versorgung 5 V und GND zu beiden TMC2209-Modulen
    - **ESP32-WROOM (HID)** → Eingabe- & Anzeigeeinheit
-     - OLED & RTC: SDA 21 / SCL 22 (I²C, 3.3 V/GND)
+     - OLED & RTC: SDA 22 / SCL 21 (I²C, 3.3 V/GND)
      - Rotary-Encoder: A 18, B 19, Button 23
      - Joystick: VRx 34, VRy 35, Button 27 (LOW-aktiv, interner Pull-up verfügbar)
    - **ESP32 ↔ ESP32-WROOM (UART-Link)**

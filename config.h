@@ -39,8 +39,8 @@ constexpr uint8_t ROT_B = 19;
 constexpr uint8_t ROT_BTN = 23;
 
 // OLED + RTC I2C pins (ESP32-WROOM default)
-constexpr uint8_t SDA_PIN = 21;
-constexpr uint8_t SCL_PIN = 22;
+constexpr uint8_t SDA_PIN = 22;
+constexpr uint8_t SCL_PIN = 21;
 
 // Inter-board communication (UART2 on ESP32-WROOM)
 constexpr uart_port_t COMM_UART_NUM = UART_NUM_2;
