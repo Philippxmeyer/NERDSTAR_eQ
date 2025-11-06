@@ -65,6 +65,9 @@ AxisState axisAlt{config::EN_DEC,
 ManualAxisControl manualAzControl{0.0, 0};
 ManualAxisControl manualAltControl{0.0, 0};
 
+volatile int8_t motorDirectionSignAz = 1;
+volatile int8_t motorDirectionSignAlt = 1;
+
 AxisCalibration calibration{
     (config::FULLSTEPS_PER_REV * config::MICROSTEPS * config::GEAR_RATIO) / 360.0,
     (config::FULLSTEPS_PER_REV * config::MICROSTEPS * config::GEAR_RATIO) / 360.0,
@@ -207,7 +210,14 @@ void applyStep(AxisState& axis, int8_t direction, uint64_t nextDue) {
     return;
   }
 
-  digitalWrite(axis.dirPin, direction > 0 ? HIGH : LOW);
+  int8_t hardwareDirection = direction;
+  if (&axis == &axisAz) {
+    hardwareDirection *= motorDirectionSignAz;
+  } else {
+    hardwareDirection *= motorDirectionSignAlt;
+  }
+
+  digitalWrite(axis.dirPin, hardwareDirection > 0 ? HIGH : LOW);
   digitalWrite(axis.stepPin, HIGH);
   esp_rom_delay_us(kStepPulseWidthUs);
   digitalWrite(axis.stepPin, LOW);
@@ -496,6 +506,14 @@ int8_t getLastDirection(Axis axis) {
   portEXIT_CRITICAL(&state.mux);
   return direction;
 }
+
+bool setMotorInversion(bool invertAz, bool invertAlt) {
+  motorDirectionSignAz = invertAz ? -1 : 1;
+  motorDirectionSignAlt = invertAlt ? -1 : 1;
+  return true;
+}
+
+void servicePendingOperations() {}
 
 }  // namespace motion
 

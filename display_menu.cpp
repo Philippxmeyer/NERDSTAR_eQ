@@ -49,6 +49,7 @@ enum class UiState {
   SetupMenu,
   SetRtc,
   LocationSetup,
+  AxisOrientation,
   CatalogTypeBrowser,
   CatalogItemList,
   CatalogItemDetail,
@@ -86,6 +87,19 @@ struct AxisCalibrationState {
 };
 
 AxisCalibrationState axisCal{0, 0, 0, 0, 0};
+
+struct AxisOrientationState {
+  bool joystickSwapAxes;
+  bool joystickInvertAz;
+  bool joystickInvertAlt;
+  bool motorInvertAz;
+  bool motorInvertAlt;
+  int fieldIndex;
+  int actionIndex;
+};
+
+constexpr int kAxisOrientationFieldCount = 6;
+AxisOrientationState axisOrientationState{false, false, false, false, false, 0, 0};
 
 struct GotoProfileSteps {
   double maxSpeedAz;
@@ -213,19 +227,20 @@ constexpr size_t kMainMenuCount = sizeof(kMainMenuItems) / sizeof(kMainMenuItems
 int setupMenuIndex = 0;
 int setupMenuScroll = 0;
 constexpr const char* kSetupMenuItems[] = {
-    "Set RTC",       "Set Location", "Cal Joystick", "Cal Axes", "Goto Speed",
-    "Pan Speed",     "Cal Backlash", "WiFi OTA",     "Back"};
+    "Set RTC",       "Set Location", "Cal Joystick", "Axis Setup", "Cal Axes",
+    "Goto Speed",    "Pan Speed",    "Cal Backlash", "WiFi OTA",    "Back"};
 constexpr size_t kSetupMenuCount = sizeof(kSetupMenuItems) / sizeof(kSetupMenuItems[0]);
 
 constexpr int kSetupMenuRtcIndex = 0;
 constexpr int kSetupMenuLocationIndex = 1;
 constexpr int kSetupMenuJoystickIndex = 2;
-constexpr int kSetupMenuAxisCalIndex = 3;
-constexpr int kSetupMenuGotoSpeedIndex = 4;
-constexpr int kSetupMenuPanSpeedIndex = 5;
-constexpr int kSetupMenuBacklashIndex = 6;
-constexpr int kSetupMenuWifiIndex = 7;
-constexpr int kSetupMenuBackIndex = 8;
+constexpr int kSetupMenuAxisOrientationIndex = 3;
+constexpr int kSetupMenuAxisCalIndex = 4;
+constexpr int kSetupMenuGotoSpeedIndex = 5;
+constexpr int kSetupMenuPanSpeedIndex = 6;
+constexpr int kSetupMenuBacklashIndex = 7;
+constexpr int kSetupMenuWifiIndex = 8;
+constexpr int kSetupMenuBackIndex = 9;
 
 int catalogTypeIndex = 0;
 int catalogTypeObjectIndex = 0;
@@ -1105,6 +1120,58 @@ void drawCatalogItemDetail() {
   display.setTextColor(SSD1306_WHITE);
 }
 
+void drawAxisOrientationSetup() {
+  display.setCursor(0, 12);
+  display.print("Axis Setup");
+  int y = 16;
+  auto drawOption = [&](int index, const char* text) {
+    bool selected = axisOrientationState.fieldIndex == index;
+    if (selected) {
+      display.fillRect(0, y, config::OLED_WIDTH, 8, SSD1306_WHITE);
+      display.setTextColor(SSD1306_BLACK);
+    } else {
+      display.setTextColor(SSD1306_WHITE);
+    }
+    display.setCursor(0, y);
+    display.print(text);
+    if (selected) {
+      display.setTextColor(SSD1306_WHITE);
+    }
+    y += 8;
+  };
+
+  char buffer[32];
+  const char* xTarget = axisOrientationState.joystickSwapAxes ? "Alt" : "Az";
+  const char* yTarget = axisOrientationState.joystickSwapAxes ? "Az" : "Alt";
+  snprintf(buffer, sizeof(buffer), "Axes: X->%s Y->%s", xTarget, yTarget);
+  drawOption(0, buffer);
+
+  drawOption(1, axisOrientationState.joystickInvertAz ? "Joy Az Dir: Reverse"
+                                                     : "Joy Az Dir: Normal");
+  drawOption(2, axisOrientationState.joystickInvertAlt ? "Joy Alt Dir: Reverse"
+                                                      : "Joy Alt Dir: Normal");
+  drawOption(3, axisOrientationState.motorInvertAz ? "Motor Az Dir: Reverse"
+                                                  : "Motor Az Dir: Normal");
+  drawOption(4, axisOrientationState.motorInvertAlt ? "Motor Alt Dir: Reverse"
+                                                   : "Motor Alt Dir: Normal");
+
+  bool actionSelected = axisOrientationState.fieldIndex == kAxisOrientationFieldCount - 1;
+  if (actionSelected) {
+    display.fillRect(0, y, config::OLED_WIDTH, 8, SSD1306_WHITE);
+    display.setTextColor(SSD1306_BLACK);
+  } else {
+    display.setTextColor(SSD1306_WHITE);
+  }
+  display.setCursor(0, y);
+  display.print(axisOrientationState.actionIndex == 0 ? "Save" : "Back");
+  if (actionSelected) {
+    display.setTextColor(SSD1306_WHITE);
+  }
+
+  display.setCursor(0, 60);
+  display.print("Enc=Next/Toggle Joy=Cancel");
+}
+
 void drawAxisCalibration() {
   display.setCursor(0, 12);
   display.print("Axis Cal");
@@ -1227,6 +1294,18 @@ void enterLocationSetup() {
   setUiState(UiState::LocationSetup);
 }
 
+void enterAxisOrientationSetup() {
+  const SystemConfig& config = storage::getConfig();
+  axisOrientationState.joystickSwapAxes = config.joystickSwapAxes != 0;
+  axisOrientationState.joystickInvertAz = config.joystickInvertAz != 0;
+  axisOrientationState.joystickInvertAlt = config.joystickInvertAlt != 0;
+  axisOrientationState.motorInvertAz = config.motorInvertAz != 0;
+  axisOrientationState.motorInvertAlt = config.motorInvertAlt != 0;
+  axisOrientationState.fieldIndex = 0;
+  axisOrientationState.actionIndex = 0;
+  setUiState(UiState::AxisOrientation);
+}
+
 void enterGotoSpeedSetup() {
   const GotoProfile& profile = storage::getConfig().gotoProfile;
   speedProfileState.maxSpeed = profile.maxSpeedDegPerSec;
@@ -1300,6 +1379,63 @@ void handleSpeedProfileInput(int delta) {
     } else {
       showInfo(speedProfileState.mode == SpeedEditMode::Goto ? "Goto unchanged"
                                                             : "Pan unchanged");
+    }
+    setUiState(UiState::SetupMenu);
+  }
+}
+
+void handleAxisOrientationInput(int delta) {
+  if (delta != 0) {
+    if (axisOrientationState.fieldIndex < kAxisOrientationFieldCount - 1) {
+      switch (axisOrientationState.fieldIndex) {
+        case 0:
+          axisOrientationState.joystickSwapAxes = !axisOrientationState.joystickSwapAxes;
+          break;
+        case 1:
+          axisOrientationState.joystickInvertAz = !axisOrientationState.joystickInvertAz;
+          break;
+        case 2:
+          axisOrientationState.joystickInvertAlt = !axisOrientationState.joystickInvertAlt;
+          break;
+        case 3:
+          axisOrientationState.motorInvertAz = !axisOrientationState.motorInvertAz;
+          break;
+        case 4:
+          axisOrientationState.motorInvertAlt = !axisOrientationState.motorInvertAlt;
+          break;
+      }
+    } else {
+      int step = delta > 0 ? 1 : -1;
+      axisOrientationState.actionIndex = (axisOrientationState.actionIndex + step + 2) % 2;
+    }
+  }
+
+  if (input::consumeJoystickPress()) {
+    setUiState(UiState::SetupMenu);
+    showInfo("Axis canceled");
+    return;
+  }
+
+  if (input::consumeEncoderClick()) {
+    if (axisOrientationState.fieldIndex < kAxisOrientationFieldCount - 1) {
+      ++axisOrientationState.fieldIndex;
+      if (axisOrientationState.fieldIndex == kAxisOrientationFieldCount - 1) {
+        axisOrientationState.actionIndex = 0;
+      }
+      return;
+    }
+
+    if (axisOrientationState.actionIndex == 0) {
+      storage::setJoystickOrientation(axisOrientationState.joystickSwapAxes,
+                                      axisOrientationState.joystickInvertAz,
+                                      axisOrientationState.joystickInvertAlt);
+      storage::setMotorInversion(axisOrientationState.motorInvertAz,
+                                 axisOrientationState.motorInvertAlt);
+      bool applied = motion::setMotorInversion(axisOrientationState.motorInvertAz,
+                                               axisOrientationState.motorInvertAlt);
+      showInfo(applied ? "Axis saved" : "Axis pending");
+    } else {
+      showInfo("Axis unchanged");
     }
     setUiState(UiState::SetupMenu);
   }
@@ -1621,6 +1757,9 @@ void render() {
       break;
     case UiState::LocationSetup:
       drawLocationSetup();
+      break;
+    case UiState::AxisOrientation:
+      drawAxisOrientationSetup();
       break;
     case UiState::CatalogTypeBrowser:
       drawCatalogTypeMenu();
@@ -2348,6 +2487,9 @@ void handleSetupMenuInput(int delta) {
     case kSetupMenuJoystickIndex:
       startJoystickCalibrationFlow();
       break;
+    case kSetupMenuAxisOrientationIndex:
+      enterAxisOrientationSetup();
+      break;
     case kSetupMenuAxisCalIndex:
       resetAxisCalibrationState();
       showInfo("Set Az 0");
@@ -2868,6 +3010,9 @@ void handleInput() {
       break;
     case UiState::LocationSetup:
       handleLocationInput(delta);
+      break;
+    case UiState::AxisOrientation:
+      handleAxisOrientationInput(delta);
       break;
     case UiState::CatalogTypeBrowser:
       handleCatalogTypeInput(delta);
