@@ -3,9 +3,9 @@
 #include <Arduino.h>
 
 struct PlanetPosition {
-  double raHours;
-  double decDegrees;
-  double distanceAu;
+  float raHours;
+  float decDegrees;
+  float distanceAu;
 };
 
 enum class PlanetId {
@@ -21,9 +21,9 @@ enum class PlanetId {
 
 namespace planets {
 
-bool computePlanet(PlanetId id, double julianDay, PlanetPosition& out);
+bool computePlanet(PlanetId id, float julianDay, PlanetPosition& out);
 bool planetFromString(const String& name, PlanetId& id);
-double julianDay(int year, int month, int day, double hourFraction);
+float julianDay(int year, int month, int day, float hourFraction);
 
 }  // namespace planets
 
