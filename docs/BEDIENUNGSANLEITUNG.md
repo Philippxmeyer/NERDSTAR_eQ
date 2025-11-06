@@ -22,7 +22,7 @@ Diese Anleitung führt dich Schritt für Schritt durch Inbetriebnahme und Bedien
 5. **Verdrahtung gemäß Pinbelegung**
    - **ESP32 (Hauptrechner)** → Steppertreiber
      - RA-Treiber: STEP 25, DIR 26, EN 27
-     - DEC-Treiber: STEP 13, DIR 12, EN 14
+     - DEC-Treiber: STEP 12, DIR 13, EN 14
      - PDN/UART (MS1) & MS2 der TMC2209 mit Pull-ups (z. B. 10 kΩ nach VIO) auf HIGH legen → 1/16 Mikroschritt fest eingestellt
      - Gemeinsame Versorgung 5 V und GND zu beiden TMC2209-Modulen
    - **ESP32-WROOM (HID)** → Eingabe- & Anzeigeeinheit
