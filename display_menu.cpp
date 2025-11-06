@@ -488,7 +488,8 @@ double hourFraction(const DateTime& time) {
 
 double localSiderealDegrees(const DateTime& time) {
   DateTime utc = toUtc(time);
-  double jd = planets::julianDay(utc.year(), utc.month(), utc.day(), hourFraction(utc));
+  double jd = planets::julianDay(utc.year(), utc.month(), utc.day(),
+                                 static_cast<float>(hourFraction(utc)));
   double T = (jd - 2451545.0) / 36525.0;
   double lst = 280.46061837 + 360.98564736629 * (jd - 2451545.0) +
                0.000387933 * T * T - (T * T * T) / 38710000.0 +
@@ -515,8 +516,9 @@ void getObjectRaDecAt(const CatalogObject& object,
   if (object.type.equalsIgnoreCase("planet") &&
       planets::planetFromString(object.name, planetId)) {
     DateTime futureUtc = toUtc(future);
-    double jd = planets::julianDay(
-        futureUtc.year(), futureUtc.month(), futureUtc.day(), hourFraction(futureUtc) + fractional / 3600.0);
+    float jd = planets::julianDay(
+        futureUtc.year(), futureUtc.month(), futureUtc.day(),
+        static_cast<float>(hourFraction(futureUtc) + fractional / 3600.0));
     PlanetPosition position;
     if (planets::computePlanet(planetId, jd, position)) {
       raHours = position.raHours;
