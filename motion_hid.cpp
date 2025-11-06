@@ -53,6 +53,12 @@ uint32_t lastManualSendMs[2] = {0, 0};
 constexpr float kManualRpmDelta = 0.02f;
 constexpr uint32_t kManualRefreshIntervalMs = 250;
 
+bool desiredMotorInvertAz = false;
+bool desiredMotorInvertAlt = false;
+bool pendingMotorOrientation = false;
+uint32_t lastMotorOrientationAttemptMs = 0;
+constexpr uint32_t kMotorOrientationRetryIntervalMs = 500;
+
 void invalidateManualCache() {
   for (size_t i = 0; i < 2; ++i) {
     lastManualRpm[i] = std::numeric_limits<float>::quiet_NaN();
@@ -208,6 +214,41 @@ void setBacklash(const BacklashConfig& backlash) {
 
 void setAltitudeLimitsEnabled(bool enabled) {
   callAndUpdate("SET_ALT_LIMITS_ENABLED", {enabled ? "1" : "0"});
+}
+
+bool setMotorInversion(bool invertAz, bool invertAlt) {
+  desiredMotorInvertAz = invertAz;
+  desiredMotorInvertAlt = invertAlt;
+  bool success = callAndUpdate("SET_MOTOR_ORIENTATION",
+                               {invertAz ? "1" : "0", invertAlt ? "1" : "0"});
+  if (success) {
+    pendingMotorOrientation = false;
+  } else {
+    pendingMotorOrientation = true;
+    lastMotorOrientationAttemptMs = millis();
+  }
+  return success;
+}
+
+void servicePendingOperations() {
+  if (!pendingMotorOrientation) {
+    return;
+  }
+  if (!comm::isLinkActive()) {
+    return;
+  }
+  uint32_t now = millis();
+  if (lastMotorOrientationAttemptMs != 0 &&
+      (now - lastMotorOrientationAttemptMs) < kMotorOrientationRetryIntervalMs) {
+    return;
+  }
+  bool success = callAndUpdate("SET_MOTOR_ORIENTATION",
+                               {desiredMotorInvertAz ? "1" : "0",
+                                desiredMotorInvertAlt ? "1" : "0"});
+  lastMotorOrientationAttemptMs = now;
+  if (success) {
+    pendingMotorOrientation = false;
+  }
 }
 
 int32_t getBacklashSteps(Axis axis) {

@@ -21,6 +21,12 @@ struct SystemConfig {
   bool polarAligned;
   uint32_t lastRtcEpoch;
   GotoProfile panningProfile;
+  uint8_t joystickSwapAxes;
+  uint8_t joystickInvertAz;
+  uint8_t joystickInvertAlt;
+  uint8_t motorInvertAz;
+  uint8_t motorInvertAlt;
+  uint16_t configVersion;
 };
 
 namespace storage {
@@ -47,6 +53,8 @@ void setPolarAligned(bool aligned);
 void setRtcEpoch(uint32_t epoch);
 void setObserverLocation(double latitudeDeg, double longitudeDeg, int32_t timezoneMinutes);
 void setDstMode(DstMode mode);
+void setJoystickOrientation(bool swapAxes, bool invertAz, bool invertAlt);
+void setMotorInversion(bool invertAz, bool invertAlt);
 void save();
 size_t getCatalogEntryCount();
 bool readCatalogEntry(size_t index, CatalogEntry& entry);

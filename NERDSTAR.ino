@@ -85,6 +85,8 @@ void setup() {
   debug::recordEvent("motion_init");
   motion::applyCalibration(storage::getConfig().axisCalibration);
   motion::setBacklash(storage::getConfig().backlash);
+  motion::setMotorInversion(storage::getConfig().motorInvertAz != 0,
+                            storage::getConfig().motorInvertAlt != 0);
   display_menu::prepareStartupLockPrompt(systemState.polarAligned);
   display_menu::showReady();
   display_menu::startTask();
@@ -103,6 +105,10 @@ void setup() {
   }
   systemState.mountLinkReady = g_mountLinkReady;
   display_menu::setOrientationKnown(systemState.polarAligned);
+  if (g_mountLinkReady) {
+    motion::setMotorInversion(storage::getConfig().motorInvertAz != 0,
+                              storage::getConfig().motorInvertAlt != 0);
+  }
 
   if (!catalog::init()) {
     display_menu::showInfo("Catalog missing", 2000);
@@ -114,19 +120,28 @@ void loop() {
   debug::recordLoop(loopStart);
   debug::recordEvent("loop_start", loopStart);
   comm::updateLink();
+  motion::servicePendingOperations();
   debug::recordEvent("loop_after_comm");
   display_menu::update();
   display_menu::handleInput();
   debug::recordEvent("loop_after_ui");
 
-  float azInput = input::getJoystickNormalizedX();
-  float altInput = input::getJoystickNormalizedY();
+  float rawX = input::getJoystickNormalizedX();
+  float rawY = input::getJoystickNormalizedY();
+  const SystemConfig& systemConfig = storage::getConfig();
+  float azInput = systemConfig.joystickSwapAxes ? rawY : rawX;
+  float altInput = systemConfig.joystickSwapAxes ? rawX : rawY;
+  if (systemConfig.joystickInvertAz) {
+    azInput = -azInput;
+  }
+  if (systemConfig.joystickInvertAlt) {
+    altInput = -altInput;
+  }
   systemState.joystickX = azInput;
   systemState.joystickY = altInput;
   systemState.joystickButtonPressed = input::isJoystickButtonPressed();
   systemState.joystickActive = (fabs(azInput) > config::JOYSTICK_DEADZONE ||
                                 fabs(altInput) > config::JOYSTICK_DEADZONE);
-  const SystemConfig& systemConfig = storage::getConfig();
   float manualMaxRpm = config::MAX_RPM_MANUAL;
   float panningMaxSpeed = systemConfig.panningProfile.maxSpeedDegPerSec;
   if (panningMaxSpeed > 0.0f) {
@@ -171,6 +186,8 @@ void loop() {
         systemState.manualCommandOk = true;
         display_menu::showInfo("Mount link ready", 2000);
         display_menu::setOrientationKnown(systemState.polarAligned);
+        motion::setMotorInversion(storage::getConfig().motorInvertAz != 0,
+                                  storage::getConfig().motorInvertAlt != 0);
         if (Serial) {
           Serial.println("[HID] Mount link re-established");
         }
@@ -352,6 +369,13 @@ void handleRequest(const comm::Request& request) {
     config.altSteps = static_cast<int32_t>(request.params[1].toInt());
     motion::setBacklash(config);
     comm::sendOk(request.id, {});
+  } else if (cmd == "SET_MOTOR_ORIENTATION") {
+    if (!requireParams(2)) return;
+    bool invertAz = request.params[0] == "1";
+    bool invertAlt = request.params[1] == "1";
+    motion::setMotorInversion(invertAz, invertAlt);
+    storage::setMotorInversion(invertAz, invertAlt);
+    comm::sendOk(request.id, {});
   } else if (cmd == "SET_ALT_LIMITS_ENABLED") {
     if (!requireParams(1)) return;
     bool enabled = request.params[0] == "1";
@@ -407,6 +431,8 @@ void setup() {
   motion::init();
   motion::applyCalibration(storage::getConfig().axisCalibration);
   motion::setBacklash(storage::getConfig().backlash);
+  motion::setMotorInversion(storage::getConfig().motorInvertAz != 0,
+                            storage::getConfig().motorInvertAlt != 0);
 
   xTaskCreatePinnedToCore(motorTask, "motor", 4096, nullptr, 2, &motorTaskHandle,
                           1);

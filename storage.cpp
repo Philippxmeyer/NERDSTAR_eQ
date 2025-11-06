@@ -10,24 +10,30 @@
 namespace {
 
 constexpr uint32_t kConfigMagic = 0x4E455244;  // "NERD"
+constexpr uint16_t kConfigVersion = 1;
 constexpr size_t kConfigStorageSize = 256;
 bool eepromReady = false;
 
-SystemConfig systemConfig{
-    kConfigMagic,
-    {2048, 2048},
-    {0.0, 0.0, 0, 0},
-    {0, 0},
-    {3.0f, 1.0f, 1.0f},
-    config::OBSERVER_LATITUDE_DEG,
-    config::OBSERVER_LONGITUDE_DEG,
-    60,
-    DstMode::Auto,
-    false,
-    false,
-    false,
-    0,
-    {3.0f, 1.0f, 1.0f}};
+SystemConfig systemConfig{kConfigMagic,
+                          {2048, 2048},
+                          {0.0, 0.0, 0, 0},
+                          {0, 0},
+                          {3.0f, 1.0f, 1.0f},
+                          config::OBSERVER_LATITUDE_DEG,
+                          config::OBSERVER_LONGITUDE_DEG,
+                          60,
+                          DstMode::Auto,
+                          false,
+                          false,
+                          false,
+                          0,
+                          {3.0f, 1.0f, 1.0f},
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          kConfigVersion};
 
 static_assert(sizeof(SystemConfig) <= kConfigStorageSize, "SystemConfig too large for config storage");
 
@@ -62,6 +68,12 @@ void applyDefaults() {
   systemConfig.panningProfile.maxSpeedDegPerSec = 3.0f;
   systemConfig.panningProfile.accelerationDegPerSec2 = 1.0f;
   systemConfig.panningProfile.decelerationDegPerSec2 = 1.0f;
+  systemConfig.joystickSwapAxes = 0;
+  systemConfig.joystickInvertAz = 0;
+  systemConfig.joystickInvertAlt = 0;
+  systemConfig.motorInvertAz = 0;
+  systemConfig.motorInvertAlt = 0;
+  systemConfig.configVersion = kConfigVersion;
 }
 
 bool profileIsInvalid(const GotoProfile& profile) {
@@ -89,6 +101,7 @@ bool init() {
     return false;
   }
   EEPROM.get(0, systemConfig);
+  bool needsSave = false;
   if (systemConfig.magic != kConfigMagic || systemConfig.axisCalibration.stepsPerDegreeAz <= 0.0 ||
       systemConfig.axisCalibration.stepsPerDegreeAlt <= 0.0) {
     applyDefaults();
@@ -98,27 +111,56 @@ bool init() {
       systemConfig.gotoProfile.maxSpeedDegPerSec = 3.0f;
       systemConfig.gotoProfile.accelerationDegPerSec2 = 1.0f;
       systemConfig.gotoProfile.decelerationDegPerSec2 = 1.0f;
+      needsSave = true;
     }
     if (profileIsInvalid(systemConfig.panningProfile)) {
       systemConfig.panningProfile.maxSpeedDegPerSec = 3.0f;
       systemConfig.panningProfile.accelerationDegPerSec2 = 1.0f;
       systemConfig.panningProfile.decelerationDegPerSec2 = 1.0f;
+      needsSave = true;
     }
     if (systemConfig.backlash.azSteps < 0) systemConfig.backlash.azSteps = 0;
     if (systemConfig.backlash.altSteps < 0) systemConfig.backlash.altSteps = 0;
     if (!isfinite(systemConfig.observerLatitudeDeg) || systemConfig.observerLatitudeDeg < -90.0 ||
         systemConfig.observerLatitudeDeg > 90.0) {
       systemConfig.observerLatitudeDeg = config::OBSERVER_LATITUDE_DEG;
+      needsSave = true;
     }
     if (!isfinite(systemConfig.observerLongitudeDeg) || systemConfig.observerLongitudeDeg < -180.0 ||
         systemConfig.observerLongitudeDeg > 180.0) {
       systemConfig.observerLongitudeDeg = config::OBSERVER_LONGITUDE_DEG;
+      needsSave = true;
     }
     if (systemConfig.timezoneOffsetMinutes < -720 || systemConfig.timezoneOffsetMinutes > 840) {
       systemConfig.timezoneOffsetMinutes = 60;
+      needsSave = true;
     }
     if (static_cast<uint8_t>(systemConfig.dstMode) > static_cast<uint8_t>(DstMode::Auto)) {
       systemConfig.dstMode = DstMode::Auto;
+      needsSave = true;
+    }
+    auto sanitizeFlag = [&](uint8_t& flag) {
+      if (flag > 1) {
+        flag = 0;
+        needsSave = true;
+      }
+    };
+    sanitizeFlag(systemConfig.joystickSwapAxes);
+    sanitizeFlag(systemConfig.joystickInvertAz);
+    sanitizeFlag(systemConfig.joystickInvertAlt);
+    sanitizeFlag(systemConfig.motorInvertAz);
+    sanitizeFlag(systemConfig.motorInvertAlt);
+    if (systemConfig.configVersion != kConfigVersion) {
+      systemConfig.joystickSwapAxes = 0;
+      systemConfig.joystickInvertAz = 0;
+      systemConfig.joystickInvertAlt = 0;
+      systemConfig.motorInvertAz = 0;
+      systemConfig.motorInvertAlt = 0;
+      systemConfig.configVersion = kConfigVersion;
+      needsSave = true;
+    }
+    if (needsSave) {
+      saveConfigInternal();
     }
   }
   return true;
@@ -175,6 +217,35 @@ void setDstMode(DstMode mode) {
     return;
   }
   systemConfig.dstMode = mode;
+  saveConfigInternal();
+}
+
+void setJoystickOrientation(bool swapAxes, bool invertAz, bool invertAlt) {
+  uint8_t swapValue = swapAxes ? 1 : 0;
+  uint8_t invertAzValue = invertAz ? 1 : 0;
+  uint8_t invertAltValue = invertAlt ? 1 : 0;
+  if (systemConfig.joystickSwapAxes == swapValue &&
+      systemConfig.joystickInvertAz == invertAzValue &&
+      systemConfig.joystickInvertAlt == invertAltValue) {
+    return;
+  }
+  systemConfig.joystickSwapAxes = swapValue;
+  systemConfig.joystickInvertAz = invertAzValue;
+  systemConfig.joystickInvertAlt = invertAltValue;
+  systemConfig.configVersion = kConfigVersion;
+  saveConfigInternal();
+}
+
+void setMotorInversion(bool invertAz, bool invertAlt) {
+  uint8_t invertAzValue = invertAz ? 1 : 0;
+  uint8_t invertAltValue = invertAlt ? 1 : 0;
+  if (systemConfig.motorInvertAz == invertAzValue &&
+      systemConfig.motorInvertAlt == invertAltValue) {
+    return;
+  }
+  systemConfig.motorInvertAz = invertAzValue;
+  systemConfig.motorInvertAlt = invertAltValue;
+  systemConfig.configVersion = kConfigVersion;
   saveConfigInternal();
 }
 
