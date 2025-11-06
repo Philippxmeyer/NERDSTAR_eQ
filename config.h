@@ -18,8 +18,8 @@ constexpr uint8_t STEP_RA = 25;
 
 // Stepper driver pins for Altitude axis
 constexpr uint8_t EN_DEC = 14;
-constexpr uint8_t DIR_DEC = 12;
-constexpr uint8_t STEP_DEC = 13;
+constexpr uint8_t DIR_DEC = 13;
+constexpr uint8_t STEP_DEC = 12;
 
 // Inter-board communication (dedicated UART freed from the TMC drivers)
 constexpr uart_port_t COMM_UART_NUM = UART_NUM_2;
@@ -71,15 +71,15 @@ constexpr uint8_t OLED_HEIGHT = 64;
 
 // WiFi / OTA configuration
 constexpr const char* WIFI_HOSTNAME_PREFIX = "nerdstar";
-constexpr const char* WIFI_STA_SSID = "";       // Set to home network SSID
-constexpr const char* WIFI_STA_PASSWORD = "";   // Set to home network password
+constexpr const char* WIFI_STA_SSID = "Waldmeyer";       // Set to home network SSID
+constexpr const char* WIFI_STA_PASSWORD = "94650411894394693580";   // Set to home network password
 
 // Astronomy constants
 constexpr double SIDEREAL_DAY_SECONDS = 86164.0905;
 constexpr double POLARIS_RA_HOURS = 2.530301;     // 02h 31m 49s
 constexpr double POLARIS_DEC_DEGREES = 89.2641;   // +89° 15' 50"
-constexpr double OBSERVER_LATITUDE_DEG = 52.5200;  // Default: Berlin
-constexpr double OBSERVER_LONGITUDE_DEG = 13.4050; // East positive
+constexpr double OBSERVER_LATITUDE_DEG = 50.7354;  // Default: Daaden
+constexpr double OBSERVER_LONGITUDE_DEG = 7.9671; // East positive
 
 } // namespace config
 
