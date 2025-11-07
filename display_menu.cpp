@@ -45,7 +45,10 @@ enum class UiState {
   StatusDetails,
   StartupLockPrompt,
   MainMenu,
+  PolarAlignMenu,
   PolarAlign,
+  LockingStarMenu,
+  LockingStarRefine,
   SetupMenu,
   SetRtc,
   LocationSetup,
@@ -224,6 +227,19 @@ constexpr const char* kMainMenuItems[] = {"Status",
                                           "Setup"};
 constexpr size_t kMainMenuCount = sizeof(kMainMenuItems) / sizeof(kMainMenuItems[0]);
 
+int polarAlignMenuIndex = 0;
+int polarAlignMenuScroll = 0;
+constexpr const char* kPolarAlignMenuItems[] = {"Lock Polaris",
+                                                "Refine Alignment",
+                                                "Clear Refinements",
+                                                "Back"};
+constexpr size_t kPolarAlignMenuCount =
+    sizeof(kPolarAlignMenuItems) / sizeof(kPolarAlignMenuItems[0]);
+constexpr int kPolarAlignMenuLockIndex = 0;
+constexpr int kPolarAlignMenuRefineIndex = 1;
+constexpr int kPolarAlignMenuClearIndex = 2;
+constexpr int kPolarAlignMenuBackIndex = 3;
+
 int setupMenuIndex = 0;
 int setupMenuScroll = 0;
 constexpr const char* kSetupMenuItems[] = {
@@ -250,10 +266,67 @@ int catalogDetailMenuIndex = 0;
 bool catalogDetailSelectingAction = false;
 constexpr int kCatalogDetailMenuCount = 2;
 
+constexpr const char* kLockingStarCandidates[] = {"Dubhe",     "Alioth",   "Arcturus",
+                                                  "Vega",      "Altair",   "Deneb",
+                                                  "Capella",   "Betelgeuse", "Rigel",
+                                                  "Aldebaran", "Spica",    "Regulus",
+                                                  "Procyon",   "Sirius",   "Fomalhaut"};
+constexpr size_t kLockingStarCandidateCount =
+    sizeof(kLockingStarCandidates) / sizeof(kLockingStarCandidates[0]);
+
+struct LockingStarOption {
+  String name;
+  int catalogIndex;
+  double raHours;
+  double decDegrees;
+  double azDeg;
+  double altDeg;
+};
+
+constexpr size_t kMaxLockingStarOptions = kLockingStarCandidateCount;
+LockingStarOption lockingStarOptions[kMaxLockingStarOptions];
+size_t lockingStarOptionCount = 0;
+int lockingStarSelectionIndex = 0;
+int lockingStarScroll = 0;
+bool lockingStarFlowActive = false;
+bool lockingStarGotoInProgress = false;
+bool lockingStarPendingRefine = false;
+double lockingStarPendingRaHours = 0.0;
+double lockingStarPendingDecDegrees = 0.0;
+int lockingStarPendingCatalogIndex = -1;
+String lockingStarPendingName;
+bool lockingStarReturnToPolarMenu = false;
+
 String infoMessage;
 uint32_t infoUntil = 0;
 portMUX_TYPE displayMux = portMUX_INITIALIZER_UNLOCKED;
 bool orientationKnown = false;
+
+struct OrientationModel {
+  OrientationModel();
+
+  void loadFromConfig(const SystemConfig& config);
+  void reset();
+  void addSample(double expectedAz, double expectedAlt, double measuredAz, double measuredAlt);
+  double toSkyAz(double physicalAz) const;
+  double toSkyAlt(double physicalAlt) const;
+  double toPhysicalAz(double skyAz) const;
+  double toPhysicalAlt(double skyAlt) const;
+  bool hasCalibration() const;
+  double azBias() const;
+  double altBias() const;
+  double totalWeight() const;
+
+ private:
+  double azBiasDeg_;
+  double altBiasDeg_;
+  double totalWeight_;
+  double sinAccumulator_;
+  double cosAccumulator_;
+  double altAccumulator_;
+};
+
+OrientationModel orientationModel;
 bool startupPromptActive = false;
 int startupPromptIndex = 0;
 constexpr const char* kStartupPromptItems[] = {
@@ -292,6 +365,13 @@ bool startGotoToCoordinates(double raHours, double decDegrees, const String& lab
 bool startParkPosition();
 void drawStartupLockPrompt();
 void handleStartupLockPromptInput(int delta);
+void drawLockingStarMenu();
+void drawLockingStarRefine();
+void handleLockingStarMenuInput(int delta);
+void handleLockingStarRefineInput();
+void drawPolarAlignMenu();
+void handlePolarAlignMenuInput(int delta);
+void enterPolarAlignMenu();
 
 void drawHeader() {
   display.setTextColor(SSD1306_WHITE);
@@ -465,6 +545,109 @@ double shortestAngularDistance(double from, double to) {
   return diff;
 }
 
+double computeOrientationSampleWeight(double azErrorDeg, double altErrorDeg) {
+  double magnitude = sqrt(azErrorDeg * azErrorDeg + altErrorDeg * altErrorDeg);
+  double weight = 1.0 / (1.0 + magnitude / 3.0);
+  if (weight < 0.1) weight = 0.1;
+  if (weight > 1.0) weight = 1.0;
+  return weight;
+}
+
+OrientationModel::OrientationModel()
+    : azBiasDeg_(0.0),
+      altBiasDeg_(0.0),
+      totalWeight_(0.0),
+      sinAccumulator_(0.0),
+      cosAccumulator_(0.0),
+      altAccumulator_(0.0) {}
+
+void OrientationModel::loadFromConfig(const SystemConfig& config) {
+  azBiasDeg_ = config.orientationAzBiasDeg;
+  altBiasDeg_ = config.orientationAltBiasDeg;
+  totalWeight_ = std::max(0.0, static_cast<double>(config.orientationSampleWeight));
+  if (totalWeight_ > 0.0) {
+    double azRad = degToRad(azBiasDeg_);
+    sinAccumulator_ = sin(azRad) * totalWeight_;
+    cosAccumulator_ = cos(azRad) * totalWeight_;
+    altAccumulator_ = altBiasDeg_ * totalWeight_;
+  } else {
+    sinAccumulator_ = 0.0;
+    cosAccumulator_ = 0.0;
+    altAccumulator_ = 0.0;
+    azBiasDeg_ = 0.0;
+    altBiasDeg_ = 0.0;
+  }
+}
+
+void OrientationModel::reset() {
+  azBiasDeg_ = 0.0;
+  altBiasDeg_ = 0.0;
+  totalWeight_ = 0.0;
+  sinAccumulator_ = 0.0;
+  cosAccumulator_ = 0.0;
+  altAccumulator_ = 0.0;
+}
+
+void OrientationModel::addSample(double expectedAz,
+                                 double expectedAlt,
+                                 double measuredAz,
+                                 double measuredAlt) {
+  double azError = shortestAngularDistance(expectedAz, measuredAz);
+  double altError = measuredAlt - expectedAlt;
+  double weight = computeOrientationSampleWeight(azError, altError);
+  if (weight <= 0.0) {
+    return;
+  }
+  constexpr double kDecay = 0.9;
+  sinAccumulator_ *= kDecay;
+  cosAccumulator_ *= kDecay;
+  altAccumulator_ *= kDecay;
+  totalWeight_ *= kDecay;
+
+  double azRad = degToRad(azError);
+  sinAccumulator_ += sin(azRad) * weight;
+  cosAccumulator_ += cos(azRad) * weight;
+  altAccumulator_ += altError * weight;
+  totalWeight_ += weight;
+
+  if (totalWeight_ < 1e-6) {
+    reset();
+    storage::clearOrientationModel();
+    return;
+  }
+
+  double magnitude = sqrt(sinAccumulator_ * sinAccumulator_ + cosAccumulator_ * cosAccumulator_);
+  if (magnitude < 1e-6) {
+    azBiasDeg_ = 0.0;
+    sinAccumulator_ = 0.0;
+    cosAccumulator_ = totalWeight_;
+  } else {
+    azBiasDeg_ = radToDeg(atan2(sinAccumulator_, cosAccumulator_));
+  }
+  altBiasDeg_ = altAccumulator_ / totalWeight_;
+  storage::setOrientationModel(azBiasDeg_, altBiasDeg_, totalWeight_);
+}
+
+double OrientationModel::toSkyAz(double physicalAz) const {
+  return wrapAngle360(physicalAz - azBiasDeg_);
+}
+
+double OrientationModel::toSkyAlt(double physicalAlt) const { return physicalAlt - altBiasDeg_; }
+
+double OrientationModel::toPhysicalAz(double skyAz) const {
+  return wrapAngle360(skyAz + azBiasDeg_);
+}
+
+double OrientationModel::toPhysicalAlt(double skyAlt) const { return skyAlt + altBiasDeg_; }
+
+bool OrientationModel::hasCalibration() const { return totalWeight_ > 0.0; }
+
+double OrientationModel::azBias() const { return azBiasDeg_; }
+
+double OrientationModel::altBias() const { return altBiasDeg_; }
+
+double OrientationModel::totalWeight() const { return totalWeight_; }
+
 double applyAtmosphericRefraction(double geometricAltitudeDeg) {
   if (geometricAltitudeDeg < -1.0 || geometricAltitudeDeg > 90.0) {
     return geometricAltitudeDeg;
@@ -510,6 +693,196 @@ double localSiderealDegrees(const DateTime& time) {
                0.000387933 * T * T - (T * T * T) / 38710000.0 +
                storage::getConfig().observerLongitudeDeg;
   return wrapAngle360(lst);
+}
+
+int findCatalogIndexForObject(const CatalogObject* target) {
+  if (!target) {
+    return -1;
+  }
+  size_t total = catalog::size();
+  for (size_t i = 0; i < total; ++i) {
+    const CatalogObject* candidate = catalog::get(i);
+    if (candidate == target) {
+      return static_cast<int>(i);
+    }
+  }
+  return -1;
+}
+
+void resetLockingStarFlow() {
+  lockingStarFlowActive = false;
+  lockingStarGotoInProgress = false;
+  lockingStarPendingRefine = false;
+  lockingStarPendingRaHours = 0.0;
+  lockingStarPendingDecDegrees = 0.0;
+  lockingStarPendingCatalogIndex = -1;
+  lockingStarPendingName = "";
+  lockingStarOptionCount = 0;
+  lockingStarSelectionIndex = 0;
+  lockingStarScroll = 0;
+  lockingStarReturnToPolarMenu = false;
+}
+
+void populateLockingStarOptions() {
+  lockingStarOptionCount = 0;
+  DateTime now = currentDateTime();
+  for (size_t i = 0; i < kLockingStarCandidateCount; ++i) {
+    if (lockingStarOptionCount >= kMaxLockingStarOptions) {
+      break;
+    }
+    const char* candidateName = kLockingStarCandidates[i];
+    const CatalogObject* object = catalog::findByName(String(candidateName));
+    if (!object) {
+      continue;
+    }
+    int catalogIndex = findCatalogIndexForObject(object);
+    if (catalogIndex < 0) {
+      continue;
+    }
+    double azDeg = 0.0;
+    double altDeg = 0.0;
+    if (!raDecToAltAz(now, object->raHours, object->decDegrees, azDeg, altDeg)) {
+      continue;
+    }
+    if (altDeg < motion::getMinAltitudeDegrees()) {
+      continue;
+    }
+    LockingStarOption& option = lockingStarOptions[lockingStarOptionCount++];
+    option.name = sanitizeForDisplay(object->name);
+    option.catalogIndex = catalogIndex;
+    option.raHours = object->raHours;
+    option.decDegrees = object->decDegrees;
+    option.azDeg = azDeg;
+    option.altDeg = altDeg;
+  }
+  lockingStarSelectionIndex = 0;
+  lockingStarScroll = 0;
+}
+
+void showLockingStarMenu() {
+  populateLockingStarOptions();
+  setUiState(UiState::LockingStarMenu);
+  systemState.menuMode = lockingStarReturnToPolarMenu ? MenuMode::PolarAlign : MenuMode::Status;
+}
+
+bool computeLockingStarErrors(double& azErrorDeg, double& altErrorDeg) {
+  if (!lockingStarPendingRefine) {
+    return false;
+  }
+  DateTime now = currentDateTime();
+  double expectedAz = 0.0;
+  double expectedAlt = 0.0;
+  if (!raDecToAltAz(now, lockingStarPendingRaHours, lockingStarPendingDecDegrees, expectedAz,
+                    expectedAlt)) {
+    return false;
+  }
+  double currentAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
+  double currentAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
+  azErrorDeg = shortestAngularDistance(expectedAz, currentAz);
+  altErrorDeg = currentAlt - expectedAlt;
+  return true;
+}
+
+void startLockingStarFollowup(bool returnToMenu = false) {
+  if (catalog::size() == 0) {
+    if (returnToMenu) {
+      showInfo("Catalog missing");
+    }
+    return;
+  }
+  lockingStarFlowActive = true;
+  lockingStarGotoInProgress = false;
+  lockingStarPendingRefine = false;
+  lockingStarPendingCatalogIndex = -1;
+  lockingStarPendingName = "";
+  lockingStarReturnToPolarMenu = returnToMenu;
+  showLockingStarMenu();
+}
+
+bool startLockingStarGoto(const LockingStarOption& option) {
+  if (option.catalogIndex < 0 || option.catalogIndex >= static_cast<int>(catalog::size())) {
+    showInfo("Star unavailable");
+    return false;
+  }
+  const CatalogObject* object = catalog::get(static_cast<size_t>(option.catalogIndex));
+  if (!object) {
+    showInfo("Star unavailable");
+    return false;
+  }
+  if (!startGotoToObject(*object, option.catalogIndex)) {
+    return false;
+  }
+  selectedObjectName = sanitizeForDisplay(object->name);
+  gotoTargetName = sanitizeForDisplay(object->name);
+  systemState.selectedCatalogIndex = option.catalogIndex;
+  lockingStarGotoInProgress = true;
+  lockingStarPendingRefine = false;
+  lockingStarPendingCatalogIndex = option.catalogIndex;
+  lockingStarPendingRaHours = option.raHours;
+  lockingStarPendingDecDegrees = option.decDegrees;
+  lockingStarPendingName = sanitizeForDisplay(object->name);
+  setUiState(UiState::StatusScreen);
+  systemState.menuMode = MenuMode::Status;
+  return true;
+}
+
+void finishLockingStarFlow() {
+  bool returnToMenu = lockingStarReturnToPolarMenu;
+  resetLockingStarFlow();
+  lockingStarReturnToPolarMenu = false;
+  if (returnToMenu) {
+    systemState.menuMode = MenuMode::PolarAlign;
+    setUiState(UiState::PolarAlignMenu);
+  } else {
+    systemState.menuMode = MenuMode::Status;
+    setUiState(UiState::StatusScreen);
+  }
+}
+
+void finalizeLockingStarRefinement() {
+  if (!lockingStarPendingRefine) {
+    finishLockingStarFlow();
+    return;
+  }
+  DateTime now = currentDateTime();
+  double expectedAz = 0.0;
+  double expectedAlt = 0.0;
+  if (!raDecToAltAz(now, lockingStarPendingRaHours, lockingStarPendingDecDegrees, expectedAz,
+                    expectedAlt)) {
+    showInfo("Star unavailable");
+    return;
+  }
+  double currentAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
+  double currentAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
+  double azError = shortestAngularDistance(expectedAz, currentAz);
+  double altError = currentAlt - expectedAlt;
+
+  orientationModel.addSample(expectedAz, expectedAlt, currentAz, currentAlt);
+
+  stopTracking();
+  motion::setStepCount(Axis::Az, motion::azDegreesToSteps(expectedAz));
+  motion::setStepCount(Axis::Alt, motion::altDegreesToSteps(expectedAlt));
+  systemState.polarAligned = true;
+  storage::setPolarAligned(true);
+  applyOrientationState(true);
+  bool trackingStarted = startTrackingCurrentOrientation();
+
+  char message[64];
+  snprintf(message, sizeof(message), "Lock saved dAz=%+.2f%c dAlt=%+.2f%c", azError, kDegreeSymbol,
+           altError, kDegreeSymbol);
+  String infoMessage(message);
+  if (orientationModel.hasCalibration()) {
+    char modelBuffer[48];
+    snprintf(modelBuffer, sizeof(modelBuffer), " mdl=%+.2f%c/%+.2f%c", orientationModel.azBias(),
+             kDegreeSymbol, orientationModel.altBias(), kDegreeSymbol);
+    infoMessage += modelBuffer;
+  }
+  if (!trackingStarted) {
+    infoMessage += " (tracking off)";
+  }
+  showInfo(infoMessage, 4000);
+
+  finishLockingStarFlow();
 }
 
 void getObjectRaDecAt(const CatalogObject& object,
@@ -752,6 +1125,77 @@ void drawStartupLockPrompt() {
   display.print("Enc/Joy=Confirm");
 }
 
+void drawLockingStarMenu() {
+  display.setCursor(0, 12);
+  display.print("Refine alignment");
+  int listTop = 24;
+  int visibleRows = computeVisibleRows(listTop, kLineHeight);
+  if (lockingStarOptionCount == 0) {
+    display.setCursor(0, listTop);
+    display.print("No bright stars");
+    display.setCursor(0, listTop + kLineHeight);
+    display.print("Enc/Joy=Skip");
+    return;
+  }
+
+  if (visibleRows <= 0) {
+    visibleRows = 1;
+  }
+
+  if (lockingStarSelectionIndex < lockingStarScroll) {
+    lockingStarScroll = lockingStarSelectionIndex;
+  }
+  if (lockingStarSelectionIndex >= lockingStarScroll + visibleRows) {
+    lockingStarScroll = lockingStarSelectionIndex - visibleRows + 1;
+  }
+
+  for (int row = 0; row < visibleRows; ++row) {
+    int optionIndex = lockingStarScroll + row;
+    if (optionIndex >= static_cast<int>(lockingStarOptionCount)) {
+      break;
+    }
+    int y = lineY(listTop, row);
+    display.setCursor(0, y);
+    display.print((optionIndex == lockingStarSelectionIndex) ? "> " : "  ");
+    display.print(lockingStarOptions[optionIndex].name);
+    display.setCursor(96, y);
+    int altDeg = static_cast<int>(llround(lockingStarOptions[optionIndex].altDeg));
+    display.printf("%+02d", altDeg);
+    display.write(kDegreeSymbol);
+  }
+
+  display.setCursor(0, config::OLED_HEIGHT - kLineHeight);
+  display.print("Enc=Goto Joy=Skip");
+}
+
+void drawLockingStarRefine() {
+  display.setCursor(0, 12);
+  display.print("Refine alignment");
+  display.setCursor(0, 20);
+  if (lockingStarPendingName.isEmpty()) {
+    display.print("Selected star");
+  } else {
+    display.print(lockingStarPendingName);
+  }
+  double azError = 0.0;
+  double altError = 0.0;
+  if (computeLockingStarErrors(azError, altError)) {
+    display.setCursor(0, 32);
+    display.printf("dAz=%+.2f", azError);
+    display.write(kDegreeSymbol);
+    display.setCursor(0, 40);
+    display.printf("dAlt=%+.2f", altError);
+    display.write(kDegreeSymbol);
+  } else {
+    display.setCursor(0, 32);
+    display.print("Center star");
+    display.setCursor(0, 40);
+    display.print("Use joystick");
+  }
+  display.setCursor(0, 52);
+  display.print("Enc=Save Joy=Skip");
+}
+
 void drawStatusMenuPrompt() {
   int footerY = config::OLED_HEIGHT - kLineHeight;
   display.fillRect(0, footerY, config::OLED_WIDTH, kLineHeight, SSD1306_WHITE);
@@ -780,6 +1224,46 @@ void drawMainMenu() {
     }
     display.setCursor(0, y);
     display.print(kMainMenuItems[index]);
+    if (selected) {
+      display.setTextColor(SSD1306_WHITE);
+    }
+  }
+}
+
+void drawPolarAlignMenu() {
+  display.setCursor(0, 16);
+  display.print("Polar Align");
+  display.setCursor(0, 24);
+  if (orientationModel.hasCalibration()) {
+    display.printf("dAz=%+.2f%c dAlt=%+.2f%c", orientationModel.azBias(), kDegreeSymbol,
+                  orientationModel.altBias(), kDegreeSymbol);
+  } else {
+    display.print("No refinements");
+  }
+  constexpr int kListTop = 32;
+  constexpr int kFooterHeight = 0;
+  int visible = computeVisibleRows(kListTop, kFooterHeight);
+  if (visible <= 0) {
+    return;
+  }
+  ensureSelectionVisible(polarAlignMenuScroll, polarAlignMenuIndex, visible,
+                         kPolarAlignMenuCount);
+  int rows = std::min(visible, static_cast<int>(kPolarAlignMenuCount));
+  for (int row = 0; row < rows; ++row) {
+    int index = polarAlignMenuScroll + row;
+    if (index >= static_cast<int>(kPolarAlignMenuCount)) {
+      break;
+    }
+    int y = lineY(kListTop, row);
+    bool selected = index == polarAlignMenuIndex;
+    if (selected) {
+      display.fillRect(0, y, config::OLED_WIDTH, kLineHeight, SSD1306_WHITE);
+      display.setTextColor(SSD1306_BLACK);
+    } else {
+      display.setTextColor(SSD1306_WHITE);
+    }
+    display.setCursor(0, y);
+    display.print(kPolarAlignMenuItems[index]);
     if (selected) {
       display.setTextColor(SSD1306_WHITE);
     }
@@ -1742,6 +2226,9 @@ void render() {
     case UiState::MainMenu:
       drawMainMenu();
       break;
+    case UiState::PolarAlignMenu:
+      drawPolarAlignMenu();
+      break;
     case UiState::PolarAlign:
       drawStatus(false);
       display.setCursor(0, 36);
@@ -1750,6 +2237,12 @@ void render() {
       display.print("Enc=Confirm");
       display.setCursor(0, 52);
       display.print("Joy=Abort");
+      break;
+    case UiState::LockingStarMenu:
+      drawLockingStarMenu();
+      break;
+    case UiState::LockingStarRefine:
+      drawLockingStarRefine();
       break;
     case UiState::SetupMenu:
       drawSetupMenu();
@@ -1795,6 +2288,13 @@ void displayTask(void*) {
     render();
     vTaskDelay(pdMS_TO_TICKS(250));
   }
+}
+
+void enterPolarAlignMenu() {
+  polarAlignMenuIndex = 0;
+  polarAlignMenuScroll = 0;
+  systemState.menuMode = MenuMode::PolarAlign;
+  setUiState(UiState::PolarAlignMenu);
 }
 
 void enterSetupMenu() {
@@ -2041,8 +2541,12 @@ bool planGotoTarget(const String& targetName, int targetCatalogIndex, ComputeFn 
   }
 
   GotoProfileSteps profile = toProfileSteps(storage::getConfig().gotoProfile, cal);
-  double azDiffNow = shortestAngularDistance(currentAz, azNow) * cal.stepsPerDegreeAz;
-  double altDiffNow = (altNow - currentAlt) * cal.stepsPerDegreeAlt;
+  double commandAzNow = orientationModel.toPhysicalAz(azNow);
+  double commandAltNow = orientationModel.toPhysicalAlt(altNow);
+  commandAltNow =
+      std::clamp(commandAltNow, motion::getMinAltitudeDegrees(), motion::getMaxAltitudeDegrees());
+  double azDiffNow = shortestAngularDistance(currentAz, commandAzNow) * cal.stepsPerDegreeAz;
+  double altDiffNow = (commandAltNow - currentAlt) * cal.stepsPerDegreeAlt;
   double durationAz =
       computeTravelTimeSteps(azDiffNow, profile.maxSpeedAz, profile.accelerationAz, profile.decelerationAz);
   double durationAlt =
@@ -2062,11 +2566,13 @@ bool planGotoTarget(const String& targetName, int targetCatalogIndex, ComputeFn 
 
   int64_t currentAzSteps = motion::getStepCount(Axis::Az);
   int64_t currentAltSteps = motion::getStepCount(Axis::Alt);
+  double commandAzFuture = orientationModel.toPhysicalAz(azFuture);
+  double commandAltFuture = orientationModel.toPhysicalAlt(altFuture);
+  commandAltFuture =
+      std::clamp(commandAltFuture, motion::getMinAltitudeDegrees(), motion::getMaxAltitudeDegrees());
   int64_t targetAzSteps =
-      currentAzSteps + static_cast<int64_t>(llround(shortestAngularDistance(currentAz, azFuture) * cal.stepsPerDegreeAz));
-  double clampedAltFuture =
-      std::clamp(altFuture, motion::getMinAltitudeDegrees(), motion::getMaxAltitudeDegrees());
-  int64_t targetAltSteps = motion::altDegreesToSteps(clampedAltFuture);
+      currentAzSteps + static_cast<int64_t>(llround(shortestAngularDistance(currentAz, commandAzFuture) * cal.stepsPerDegreeAz));
+  int64_t targetAltSteps = motion::altDegreesToSteps(commandAltFuture);
 
   gotoRuntime.active = true;
   gotoRuntime.az = initAxisRuntime(Axis::Az, targetAzSteps);
@@ -2105,8 +2611,12 @@ void finalizeTrackingTarget(int catalogIndex,
   tracking.targetCatalogIndex = catalogIndex;
   tracking.targetRaHours = raHours;
   tracking.targetDecDegrees = decDegrees;
-  tracking.offsetAzDeg = wrapAngle180(motion::stepsToAzDegrees(motion::getStepCount(Axis::Az)) - azDeg);
-  tracking.offsetAltDeg = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt)) - altDeg;
+  double physicalAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
+  double physicalAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
+  double skyAz = orientationModel.toSkyAz(physicalAz);
+  double skyAlt = orientationModel.toSkyAlt(physicalAlt);
+  tracking.offsetAzDeg = wrapAngle180(skyAz - azDeg);
+  tracking.offsetAltDeg = skyAlt - altDeg;
   tracking.userAdjusting = false;
   systemState.trackingActive = true;
   motion::setTrackingEnabled(true);
@@ -2114,11 +2624,13 @@ void finalizeTrackingTarget(int catalogIndex,
 
 bool startTrackingCurrentOrientation() {
   DateTime now = currentDateTime();
-  double currentAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
-  double currentAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
+  double physicalAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
+  double physicalAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
+  double skyAz = orientationModel.toSkyAz(physicalAz);
+  double skyAlt = orientationModel.toSkyAlt(physicalAlt);
   double raHours = 0.0;
   double decDegrees = 0.0;
-  if (!altAzToRaDec(now, currentAz, currentAlt, raHours, decDegrees)) {
+  if (!altAzToRaDec(now, skyAz, skyAlt, raHours, decDegrees)) {
     return false;
   }
   double targetAz = 0.0;
@@ -2150,6 +2662,14 @@ void completeGotoSuccess() {
   double dec = gotoRuntime.targetDecDegrees;
   raDecToAltAz(now, ra, dec, azDeg, altDeg);
   finalizeTrackingTarget(gotoRuntime.targetCatalogIndex, ra, dec, azDeg, altDeg);
+  if (lockingStarFlowActive && lockingStarGotoInProgress &&
+      gotoRuntime.targetCatalogIndex == lockingStarPendingCatalogIndex) {
+    lockingStarGotoInProgress = false;
+    lockingStarPendingRefine = true;
+    lockingStarPendingRaHours = ra;
+    lockingStarPendingDecDegrees = dec;
+    setUiState(UiState::LockingStarRefine);
+  }
 }
 
 void abortGoto() {
@@ -2158,6 +2678,12 @@ void abortGoto() {
   systemState.gotoActive = false;
   gotoRuntime.resumeTracking = true;
   stopTracking();
+  if (lockingStarFlowActive && lockingStarGotoInProgress) {
+    lockingStarGotoInProgress = false;
+    lockingStarPendingRefine = false;
+    lockingStarPendingCatalogIndex = -1;
+    showLockingStarMenu();
+  }
 }
 
 void updateTracking() {
@@ -2195,23 +2721,32 @@ void updateTracking() {
 
   double desiredAz = wrapAngle360(azDeg + tracking.offsetAzDeg);
   double desiredAlt = altDeg + tracking.offsetAltDeg;
-  desiredAlt =
-      std::clamp(desiredAlt, motion::getMinAltitudeDegrees(), motion::getMaxAltitudeDegrees());
+  double desiredPhysicalAz = orientationModel.toPhysicalAz(desiredAz);
+  double desiredPhysicalAlt = orientationModel.toPhysicalAlt(desiredAlt);
+  desiredPhysicalAlt =
+      std::clamp(desiredPhysicalAlt, motion::getMinAltitudeDegrees(), motion::getMaxAltitudeDegrees());
   double currentAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
   double currentAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
+  double actualSkyAz = orientationModel.toSkyAz(currentAz);
+  double actualSkyAlt = orientationModel.toSkyAlt(currentAlt);
 
   if (systemState.joystickActive) {
     tracking.userAdjusting = true;
   } else if (tracking.userAdjusting) {
     tracking.userAdjusting = false;
-    tracking.offsetAzDeg = wrapAngle180(currentAz - azDeg);
-    tracking.offsetAltDeg = currentAlt - altDeg;
+    tracking.offsetAzDeg = wrapAngle180(actualSkyAz - azDeg);
+    tracking.offsetAltDeg = actualSkyAlt - altDeg;
     desiredAz = wrapAngle360(azDeg + tracking.offsetAzDeg);
     desiredAlt = altDeg + tracking.offsetAltDeg;
+    desiredPhysicalAz = orientationModel.toPhysicalAz(desiredAz);
+    desiredPhysicalAlt =
+        orientationModel.toPhysicalAlt(desiredAlt);
+    desiredPhysicalAlt = std::clamp(desiredPhysicalAlt, motion::getMinAltitudeDegrees(),
+                                    motion::getMaxAltitudeDegrees());
   }
 
-  double errorAz = shortestAngularDistance(currentAz, desiredAz);
-  double errorAlt = desiredAlt - currentAlt;
+  double errorAz = shortestAngularDistance(currentAz, desiredPhysicalAz);
+  double errorAlt = desiredPhysicalAlt - currentAlt;
   constexpr double kTrackingGain = 0.4;
   constexpr double kMaxTrackingSpeed = 3.0;
   double azRate = std::clamp(errorAz * kTrackingGain, -kMaxTrackingSpeed, kMaxTrackingSpeed);
@@ -2363,7 +2898,7 @@ void handleMainMenuInput(int delta) {
       setUiState(UiState::StatusDetails);
       break;
     case 1:
-      startPolarAlignment();
+      enterPolarAlignMenu();
       break;
     case 2:
       if (!systemState.polarAligned) {
@@ -2458,6 +2993,47 @@ void handleMainMenuInput(int delta) {
       enterSetupMenu();
       break;
     default:
+      break;
+  }
+}
+
+void handlePolarAlignMenuInput(int delta) {
+  if (delta != 0) {
+    polarAlignMenuIndex += delta;
+    if (polarAlignMenuIndex < 0) polarAlignMenuIndex = 0;
+    if (polarAlignMenuIndex >= static_cast<int>(kPolarAlignMenuCount)) {
+      polarAlignMenuIndex = static_cast<int>(kPolarAlignMenuCount) - 1;
+    }
+  }
+  int visible = computeVisibleRows(32, 0);
+  ensureSelectionVisible(polarAlignMenuScroll, polarAlignMenuIndex, visible, kPolarAlignMenuCount);
+  if (input::consumeJoystickPress()) {
+    systemState.menuMode = MenuMode::Status;
+    setUiState(UiState::MainMenu);
+    return;
+  }
+  if (!input::consumeEncoderClick()) {
+    return;
+  }
+  switch (polarAlignMenuIndex) {
+    case kPolarAlignMenuLockIndex:
+      startPolarAlignment();
+      break;
+    case kPolarAlignMenuRefineIndex:
+      if (!systemState.polarAligned || !orientationKnown) {
+        showInfo("Lock Polaris first");
+      } else {
+        startLockingStarFollowup(true);
+      }
+      break;
+    case kPolarAlignMenuClearIndex:
+      orientationModel.reset();
+      storage::clearOrientationModel();
+      showInfo("Refinements cleared");
+      break;
+    case kPolarAlignMenuBackIndex:
+      systemState.menuMode = MenuMode::Status;
+      setUiState(UiState::MainMenu);
       break;
   }
 }
@@ -2817,6 +3393,57 @@ void handleStartupLockPromptInput(int delta) {
   }
 }
 
+void handleLockingStarMenuInput(int delta) {
+  if (!lockingStarFlowActive) {
+    setUiState(UiState::StatusScreen);
+    return;
+  }
+  if (lockingStarOptionCount > 0 && delta != 0) {
+    lockingStarSelectionIndex += delta;
+    while (lockingStarSelectionIndex < 0) {
+      lockingStarSelectionIndex += static_cast<int>(lockingStarOptionCount);
+    }
+    while (lockingStarSelectionIndex >= static_cast<int>(lockingStarOptionCount)) {
+      lockingStarSelectionIndex -= static_cast<int>(lockingStarOptionCount);
+    }
+  }
+
+  if (input::consumeEncoderClick()) {
+    if (lockingStarOptionCount == 0) {
+      showInfo("Refine skipped", 2000);
+      finishLockingStarFlow();
+      return;
+    }
+    int index = lockingStarSelectionIndex;
+    if (index < 0 || index >= static_cast<int>(lockingStarOptionCount)) {
+      index = 0;
+    }
+    if (startLockingStarGoto(lockingStarOptions[static_cast<size_t>(index)])) {
+      return;
+    }
+  }
+
+  if (input::consumeJoystickPress()) {
+    showInfo("Refine skipped", 2000);
+    finishLockingStarFlow();
+  }
+}
+
+void handleLockingStarRefineInput() {
+  if (!lockingStarFlowActive) {
+    setUiState(UiState::StatusScreen);
+    return;
+  }
+  if (input::consumeEncoderClick()) {
+    finalizeLockingStarRefinement();
+    return;
+  }
+  if (input::consumeJoystickPress()) {
+    showInfo("Lock not saved", 2000);
+    finishLockingStarFlow();
+  }
+}
+
 void handlePolarAlignInput() {
   bool select = input::consumeEncoderClick();
   if (select) {
@@ -2872,6 +3499,8 @@ void init() {
   }
 
   Wire.begin(config::SDA_PIN, config::SCL_PIN);
+
+  orientationModel.loadFromConfig(storage::getConfig());
 
   auto initPeripherals = [&]() {
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -3001,8 +3630,17 @@ void handleInput() {
     case UiState::MainMenu:
       handleMainMenuInput(delta);
       break;
+    case UiState::PolarAlignMenu:
+      handlePolarAlignMenuInput(delta);
+      break;
     case UiState::PolarAlign:
       handlePolarAlignInput();
+      break;
+    case UiState::LockingStarMenu:
+      handleLockingStarMenuInput(delta);
+      break;
+    case UiState::LockingStarRefine:
+      handleLockingStarRefineInput();
       break;
     case UiState::SetupMenu:
       handleSetupMenuInput(delta);
@@ -3075,6 +3713,7 @@ void completePolarAlignment() {
   setUiState(UiState::StatusScreen);
   bool trackingStarted = startTrackingCurrentOrientation();
   showInfo(trackingStarted ? "Tracking Polaris" : "Polaris locked");
+  startLockingStarFollowup();
 }
 
 void startPolarAlignment() {
@@ -3085,6 +3724,7 @@ void startPolarAlignment() {
   applyOrientationState(false);
   storage::setPolarAligned(false);
   setUiState(UiState::PolarAlign);
+  resetLockingStarFlow();
   showInfo("Use joystick", 2000);
 }
 

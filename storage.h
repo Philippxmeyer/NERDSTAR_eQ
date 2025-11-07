@@ -26,6 +26,9 @@ struct SystemConfig {
   uint8_t joystickInvertAlt;
   uint8_t motorInvertAz;
   uint8_t motorInvertAlt;
+  double orientationAzBiasDeg;
+  double orientationAltBiasDeg;
+  double orientationSampleWeight;
   uint16_t configVersion;
 };
 
@@ -55,6 +58,8 @@ void setObserverLocation(double latitudeDeg, double longitudeDeg, int32_t timezo
 void setDstMode(DstMode mode);
 void setJoystickOrientation(bool swapAxes, bool invertAz, bool invertAlt);
 void setMotorInversion(bool invertAz, bool invertAlt);
+void setOrientationModel(double azBiasDeg, double altBiasDeg, double sampleWeight);
+void clearOrientationModel();
 void save();
 size_t getCatalogEntryCount();
 bool readCatalogEntry(size_t index, CatalogEntry& entry);
