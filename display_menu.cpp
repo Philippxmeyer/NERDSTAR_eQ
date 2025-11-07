@@ -1616,13 +1616,20 @@ void drawCatalogItemDetail() {
 }
 
 void drawAxisOrientationSetup() {
-  display.setCursor(0, 12);
+  display.setCursor(0, 0);
   display.print("Axis Setup");
-  int y = 16;
+  int joyLabelX = config::OLED_WIDTH - 6 * 10;  // Rough width for "Joy=Cancel"
+  if (joyLabelX < 0) {
+    joyLabelX = 0;
+  }
+  display.setCursor(joyLabelX, 0);
+  display.print("Joy=Cancel");
+
+  int y = kLineHeight;
   auto drawOption = [&](int index, const char* text) {
     bool selected = axisOrientationState.fieldIndex == index;
     if (selected) {
-      display.fillRect(0, y, config::OLED_WIDTH, 8, SSD1306_WHITE);
+      display.fillRect(0, y, config::OLED_WIDTH, kLineHeight, SSD1306_WHITE);
       display.setTextColor(SSD1306_BLACK);
     } else {
       display.setTextColor(SSD1306_WHITE);
@@ -1632,7 +1639,7 @@ void drawAxisOrientationSetup() {
     if (selected) {
       display.setTextColor(SSD1306_WHITE);
     }
-    y += 8;
+    y += kLineHeight;
   };
 
   char buffer[32];
@@ -1652,7 +1659,7 @@ void drawAxisOrientationSetup() {
 
   bool actionSelected = axisOrientationState.fieldIndex == kAxisOrientationFieldCount - 1;
   if (actionSelected) {
-    display.fillRect(0, y, config::OLED_WIDTH, 8, SSD1306_WHITE);
+    display.fillRect(0, y, config::OLED_WIDTH, kLineHeight, SSD1306_WHITE);
     display.setTextColor(SSD1306_BLACK);
   } else {
     display.setTextColor(SSD1306_WHITE);
@@ -1663,8 +1670,12 @@ void drawAxisOrientationSetup() {
     display.setTextColor(SSD1306_WHITE);
   }
 
-  display.setCursor(0, 60);
-  display.print("Enc=Next/Toggle Joy=Cancel");
+  int helpY = config::OLED_HEIGHT - kLineHeight;
+  if (helpY < 0) {
+    helpY = 0;
+  }
+  display.setCursor(0, helpY);
+  display.print("Press=Next Rot=Toggle");
 }
 
 void drawAxisCalibration() {
