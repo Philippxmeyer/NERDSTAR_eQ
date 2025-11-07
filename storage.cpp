@@ -10,7 +10,7 @@
 namespace {
 
 constexpr uint32_t kConfigMagic = 0x4E455244;  // "NERD"
-constexpr uint16_t kConfigVersion = 1;
+constexpr uint16_t kConfigVersion = 2;
 constexpr size_t kConfigStorageSize = 256;
 bool eepromReady = false;
 
@@ -33,6 +33,9 @@ SystemConfig systemConfig{kConfigMagic,
                           0,
                           0,
                           0,
+                          0.0,
+                          0.0,
+                          0.0,
                           kConfigVersion};
 
 static_assert(sizeof(SystemConfig) <= kConfigStorageSize, "SystemConfig too large for config storage");
@@ -73,6 +76,9 @@ void applyDefaults() {
   systemConfig.joystickInvertAlt = 0;
   systemConfig.motorInvertAz = 0;
   systemConfig.motorInvertAlt = 0;
+  systemConfig.orientationAzBiasDeg = 0.0;
+  systemConfig.orientationAltBiasDeg = 0.0;
+  systemConfig.orientationSampleWeight = 0.0;
   systemConfig.configVersion = kConfigVersion;
 }
 
@@ -150,12 +156,27 @@ bool init() {
     sanitizeFlag(systemConfig.joystickInvertAlt);
     sanitizeFlag(systemConfig.motorInvertAz);
     sanitizeFlag(systemConfig.motorInvertAlt);
+    if (!isfinite(systemConfig.orientationAzBiasDeg)) {
+      systemConfig.orientationAzBiasDeg = 0.0;
+      needsSave = true;
+    }
+    if (!isfinite(systemConfig.orientationAltBiasDeg)) {
+      systemConfig.orientationAltBiasDeg = 0.0;
+      needsSave = true;
+    }
+    if (!isfinite(systemConfig.orientationSampleWeight) || systemConfig.orientationSampleWeight < 0.0) {
+      systemConfig.orientationSampleWeight = 0.0;
+      needsSave = true;
+    }
     if (systemConfig.configVersion != kConfigVersion) {
       systemConfig.joystickSwapAxes = 0;
       systemConfig.joystickInvertAz = 0;
       systemConfig.joystickInvertAlt = 0;
       systemConfig.motorInvertAz = 0;
       systemConfig.motorInvertAlt = 0;
+      systemConfig.orientationAzBiasDeg = 0.0;
+      systemConfig.orientationAltBiasDeg = 0.0;
+      systemConfig.orientationSampleWeight = 0.0;
       systemConfig.configVersion = kConfigVersion;
       needsSave = true;
     }
@@ -247,6 +268,17 @@ void setMotorInversion(bool invertAz, bool invertAlt) {
   systemConfig.motorInvertAlt = invertAltValue;
   systemConfig.configVersion = kConfigVersion;
   saveConfigInternal();
+}
+
+void setOrientationModel(double azBiasDeg, double altBiasDeg, double sampleWeight) {
+  systemConfig.orientationAzBiasDeg = azBiasDeg;
+  systemConfig.orientationAltBiasDeg = altBiasDeg;
+  systemConfig.orientationSampleWeight = sampleWeight;
+  saveConfigInternal();
+}
+
+void clearOrientationModel() {
+  setOrientationModel(0.0, 0.0, 0.0);
 }
 
 void save() { saveConfigInternal(); }
