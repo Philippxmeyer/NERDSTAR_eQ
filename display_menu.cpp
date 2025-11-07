@@ -361,7 +361,14 @@ void setUiState(UiState state) {
 }
 
 void abortGoto();
+bool raDecToAltAz(const DateTime& when,
+                  double raHours,
+                  double decDegrees,
+                  double& azDeg,
+                  double& altDeg);
+bool startGotoToObject(const CatalogObject& object, int catalogIndex);
 bool startGotoToCoordinates(double raHours, double decDegrees, const String& label);
+bool startTrackingCurrentOrientation();
 bool startParkPosition();
 void drawStartupLockPrompt();
 void handleStartupLockPromptInput(int delta);
