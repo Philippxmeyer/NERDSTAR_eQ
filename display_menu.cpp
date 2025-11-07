@@ -776,8 +776,10 @@ bool computeLockingStarErrors(double& azErrorDeg, double& altErrorDeg) {
                     expectedAlt)) {
     return false;
   }
-  double currentAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
-  double currentAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
+  double physicalAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
+  double physicalAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
+  double currentAz = orientationModel.toSkyAz(physicalAz);
+  double currentAlt = orientationModel.toSkyAlt(physicalAlt);
   azErrorDeg = shortestAngularDistance(expectedAz, currentAz);
   altErrorDeg = currentAlt - expectedAlt;
   return true;

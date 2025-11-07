@@ -213,8 +213,9 @@ void computeNutation(float t, float& deltaPsi, float& deltaEpsilon) {
     sumEps += (term.ce + term.cet * t) * cosArg;
   }
 
-  deltaPsi = sumPsi * 1e-7f * kDegToRad;
-  deltaEpsilon = sumEps * 1e-7f * kDegToRad;
+  constexpr float kArcsecondToRad = kDegToRad / 3600.0f;
+  deltaPsi = sumPsi * 1e-7f * kArcsecondToRad;
+  deltaEpsilon = sumEps * 1e-7f * kArcsecondToRad;
 }
 
 Matrix3 precessionMatrixIAU2006(float t) {
