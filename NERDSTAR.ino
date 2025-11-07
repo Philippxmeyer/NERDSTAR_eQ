@@ -88,13 +88,14 @@ void setup() {
   motion::setMotorInversion(storage::getConfig().motorInvertAz != 0,
                             storage::getConfig().motorInvertAlt != 0);
   display_menu::prepareStartupLockPrompt(systemState.polarAligned);
-  display_menu::showReady();
   display_menu::startTask();
 
   debug::recordEvent("display_ready");
 
   comm::waitForReady(5000);
   debug::recordEvent("wait_for_ready_done");
+  display_menu::stopBootAnimation();
+  display_menu::showReady();
   g_mountLinkReady = comm::isLinkActive();
   if (Serial) {
     Serial.println(g_mountLinkReady ? "[HID] Mount link ready"

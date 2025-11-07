@@ -12,6 +12,7 @@ namespace display_menu {
 
 void init();
 void showBootMessage();
+void stopBootAnimation();
 void showCalibrationStart();
 void showCalibrationResult(int centerX, int centerY);
 void showReady();

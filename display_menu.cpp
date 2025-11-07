@@ -39,6 +39,113 @@ SemaphoreHandle_t i2cMutex = nullptr;
 StaticSemaphore_t i2cMutexBuffer;
 
 constexpr int kLineHeight = 8;
+constexpr float kTwoPi = 6.283185307f;
+
+struct BootStar {
+  float baseX;
+  float baseY;
+  float twinkleRate;
+  float driftRate;
+  float driftAmplitude;
+  float phase;
+};
+
+constexpr size_t kBootStarCount = 18;
+constexpr uint32_t kBootAnimationMinDurationMs = 2000;
+BootStar bootStars[kBootStarCount];
+bool bootAnimationActive = false;
+bool bootAnimationStopRequested = false;
+uint32_t bootAnimationStartMs = 0;
+uint32_t bootAnimationMinEndMs = 0;
+
+float randomFloat(float minValue, float maxValue) {
+  long scale = random(0L, 10000L);
+  float unit = static_cast<float>(scale) / 10000.0f;
+  return minValue + (maxValue - minValue) * unit;
+}
+
+void resetBootStar(size_t index) {
+  BootStar& star = bootStars[index];
+  star.baseX = randomFloat(0.0f, static_cast<float>(config::OLED_WIDTH - 1));
+  // Leave a little room for the status text at the bottom.
+  star.baseY = randomFloat(8.0f, static_cast<float>(config::OLED_HEIGHT - 10));
+  star.twinkleRate = randomFloat(0.0035f, 0.0065f);
+  star.driftRate = randomFloat(0.0008f, 0.0016f) * (random(0, 2) == 0 ? -1.0f : 1.0f);
+  star.driftAmplitude = randomFloat(0.5f, 2.5f);
+  star.phase = randomFloat(0.0f, kTwoPi);
+}
+
+void drawStarPixel(int x, int y, int radius) {
+  if (x < 0 || x >= config::OLED_WIDTH || y < 0 || y >= config::OLED_HEIGHT) {
+    return;
+  }
+  display.drawPixel(x, y, SSD1306_WHITE);
+  if (radius >= 1) {
+    if (x > 0) display.drawPixel(x - 1, y, SSD1306_WHITE);
+    if (x < config::OLED_WIDTH - 1) display.drawPixel(x + 1, y, SSD1306_WHITE);
+    if (y > 0) display.drawPixel(x, y - 1, SSD1306_WHITE);
+    if (y < config::OLED_HEIGHT - 1) display.drawPixel(x, y + 1, SSD1306_WHITE);
+  }
+  if (radius >= 2) {
+    if (x > 0 && y > 0) display.drawPixel(x - 1, y - 1, SSD1306_WHITE);
+    if (x > 0 && y < config::OLED_HEIGHT - 1)
+      display.drawPixel(x - 1, y + 1, SSD1306_WHITE);
+    if (x < config::OLED_WIDTH - 1 && y > 0)
+      display.drawPixel(x + 1, y - 1, SSD1306_WHITE);
+    if (x < config::OLED_WIDTH - 1 && y < config::OLED_HEIGHT - 1)
+      display.drawPixel(x + 1, y + 1, SSD1306_WHITE);
+  }
+}
+
+void drawBootAnimation(uint32_t nowMs) {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.print("NERDSTAR");
+  display.setCursor(0, 10);
+  display.print("Booting");
+
+  uint32_t elapsed = nowMs - bootAnimationStartMs;
+  for (size_t i = 0; i < kBootStarCount; ++i) {
+    BootStar& star = bootStars[i];
+    float twinklePhase = star.phase + star.twinkleRate * static_cast<float>(elapsed);
+    while (twinklePhase > kTwoPi) {
+      twinklePhase -= kTwoPi;
+    }
+    float brightness = 0.5f + 0.5f * sinf(twinklePhase);
+
+    float driftPhase = star.phase + star.driftRate * static_cast<float>(elapsed);
+    float driftOffset = sinf(driftPhase) * star.driftAmplitude;
+    int x = static_cast<int>(star.baseX + 0.5f);
+    int y = static_cast<int>(star.baseY + driftOffset + 0.5f);
+
+    if (y < 0) {
+      y = 0;
+    } else if (y >= config::OLED_HEIGHT) {
+      y = config::OLED_HEIGHT - 1;
+    }
+
+    if (brightness < 0.2f) {
+      if (brightness < 0.05f && elapsed > 750) {
+        resetBootStar(i);
+      }
+      continue;
+    }
+
+    int radius = 0;
+    if (brightness > 0.85f) {
+      radius = 2;
+    } else if (brightness > 0.55f) {
+      radius = 1;
+    }
+    drawStarPixel(x, y, radius);
+  }
+
+  static const char* kSpinner[] = {"-", "\\", "|", "/"};
+  int spinnerIndex = (elapsed / 300) % 4;
+  display.setCursor(0, config::OLED_HEIGHT - 10);
+  display.print("Waiting for link ");
+  display.print(kSpinner[spinnerIndex]);
+}
 
 enum class UiState {
   StatusScreen,
@@ -2217,6 +2324,19 @@ void render() {
     return;
   }
 
+  uint32_t now = millis();
+  if (bootAnimationActive) {
+    if (bootAnimationStopRequested && now >= bootAnimationMinEndMs) {
+      bootAnimationActive = false;
+      bootAnimationStopRequested = false;
+    }
+    if (bootAnimationActive) {
+      drawBootAnimation(now);
+      display.display();
+      return;
+    }
+  }
+
   display.clearDisplay();
 
   bool showHeader = uiState != UiState::MainMenu;
@@ -3533,6 +3653,10 @@ void init() {
     display.display();
 
     rtcAvailable = rtc.begin();
+    if (!rtcAvailable) {
+      delay(25);
+      rtcAvailable = rtc.begin();
+    }
   };
 
   {
@@ -3551,10 +3675,28 @@ void showBootMessage() {
   if (!lock.locked()) {
     return;
   }
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.print("NERDSTAR booting...");
+  for (size_t i = 0; i < kBootStarCount; ++i) {
+    resetBootStar(i);
+  }
+  bootAnimationActive = true;
+  bootAnimationStopRequested = false;
+  bootAnimationStartMs = millis();
+  bootAnimationMinEndMs = bootAnimationStartMs + kBootAnimationMinDurationMs;
+  drawBootAnimation(bootAnimationStartMs);
   display.display();
+}
+
+void stopBootAnimation() {
+  if (!bootAnimationActive) {
+    return;
+  }
+  uint32_t now = millis();
+  if (now >= bootAnimationMinEndMs) {
+    bootAnimationActive = false;
+    bootAnimationStopRequested = false;
+  } else {
+    bootAnimationStopRequested = true;
+  }
 }
 
 void showCalibrationStart() {
@@ -3587,14 +3729,15 @@ void showCalibrationResult(int centerX, int centerY) {
 }
 
 void showReady() {
-  MutexLock lock(i2cMutex);
-  if (!lock.locked()) {
-    return;
+  bool hasActiveMessage = false;
+  portENTER_CRITICAL(&displayMux);
+  if (!infoMessage.isEmpty() && millis() <= infoUntil) {
+    hasActiveMessage = true;
   }
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.print("NERDSTAR ready");
-  display.display();
+  portEXIT_CRITICAL(&displayMux);
+  if (!hasActiveMessage) {
+    showInfo("NERDSTAR ready", 1500);
+  }
 }
 
 void prepareStartupLockPrompt(bool hasSavedLock) {
