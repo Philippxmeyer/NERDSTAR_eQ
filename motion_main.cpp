@@ -32,6 +32,8 @@ struct AxisState {
   double gotoStepsPerSecond;
   double trackingStepsPerSecond;
   int8_t lastDirection;
+  int8_t commandDirection;
+  int32_t backlashStepsRemaining;
   uint64_t nextStepDueUs;
 };
 
@@ -49,6 +51,8 @@ AxisState axisAz{config::EN_RA,
                  0.0,
                  0.0,
                  1,
+                 0,
+                 0,
                  0};
 
 AxisState axisAlt{config::EN_DEC,
@@ -60,6 +64,8 @@ AxisState axisAlt{config::EN_DEC,
                   0.0,
                   0.0,
                   1,
+                  0,
+                  0,
                   0};
 
 ManualAxisControl manualAzControl{0.0, 0};
@@ -91,6 +97,10 @@ ManualAxisControl& getManualControl(Axis axis) {
 double getAxisStepsPerDegree(Axis axis) {
   return (axis == Axis::Az) ? calibration.stepsPerDegreeAz
                             : calibration.stepsPerDegreeAlt;
+}
+
+int32_t getAxisBacklashSteps(const AxisState& axis) {
+  return (&axis == &axisAz) ? backlash.azSteps : backlash.altSteps;
 }
 
 bool isTrackingEnabled() {
@@ -183,28 +193,57 @@ int64_t clampAltitudeSteps(int64_t steps) {
 
 void applyStep(AxisState& axis, int8_t direction, uint64_t nextDue) {
   bool allowStep = true;
-  if (&axis == &axisAlt && calibration.stepsPerDegreeAlt > 0.0 && altitudeLimitsEnabled) {
-    portENTER_CRITICAL(&axis.mux);
-    int64_t candidate = axis.stepCounter + direction;
+  bool applyingBacklash = false;
+  bool updateCounter = true;
+
+  int32_t configuredBacklash = getAxisBacklashSteps(axis);
+
+  portENTER_CRITICAL(&axis.mux);
+
+  if (axis.commandDirection != direction) {
+    axis.commandDirection = direction;
+    if (axis.lastDirection != 0 && axis.lastDirection != direction &&
+        configuredBacklash > 0) {
+      axis.backlashStepsRemaining = configuredBacklash;
+    } else {
+      axis.backlashStepsRemaining = 0;
+    }
+  }
+
+  if (axis.backlashStepsRemaining > 0) {
+    applyingBacklash = true;
+    updateCounter = false;
+  }
+
+  int64_t candidate = axis.stepCounter + direction;
+  bool checkAltitude = (&axis == &axisAlt && calibration.stepsPerDegreeAlt > 0.0 &&
+                        altitudeLimitsEnabled);
+  if (checkAltitude) {
     double candidateDegrees = stepsToAltitudeDegreesRaw(candidate);
     if (candidateDegrees < kMinAltitudeDegrees ||
         candidateDegrees > kMaxAltitudeDegrees) {
       axis.stepCounter = clampAltitudeSteps(axis.stepCounter);
       axis.nextStepDueUs = 0;
       allowStep = false;
-    } else {
+    }
+  }
+
+  if (allowStep) {
+    if (updateCounter) {
       axis.stepCounter = candidate;
       axis.lastDirection = direction;
-      axis.nextStepDueUs = nextDue;
     }
-    portEXIT_CRITICAL(&axis.mux);
-  } else {
-    portENTER_CRITICAL(&axis.mux);
-    axis.stepCounter += direction;
-    axis.lastDirection = direction;
     axis.nextStepDueUs = nextDue;
-    portEXIT_CRITICAL(&axis.mux);
   }
+
+  if (allowStep && applyingBacklash) {
+    axis.backlashStepsRemaining--;
+    if (axis.backlashStepsRemaining == 0) {
+      axis.lastDirection = direction;
+    }
+  }
+
+  portEXIT_CRITICAL(&axis.mux);
 
   if (!allowStep) {
     return;
