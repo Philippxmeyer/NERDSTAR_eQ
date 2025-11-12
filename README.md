@@ -57,6 +57,7 @@ und irgendwann sagen: „Lauf, kleiner ESP, lauf mit den Sternen.“
 | ---------------------- | ----------------------------------- | ------------------------------------- |
 | **ESP32 (Hauptrechner)** | Kursberechnung + Motorsteuerung      | UART2 TX (17) ↔ HID-RX, UART2 RX (16) ↔ HID-TX |
 | **ESP32-WROOM (HID)**  | Display, Eingaben, EEPROM-Katalog    | UART2 TX (17) ↔ Main-RX, UART2 RX (16) ↔ Main-TX |
+| **LM2596 Step-Down**   | 12 V → 5 V Versorgung               | Eingang: 12 V, Ausgang: 5 V an ESP32 Main |
 | **TMC2209 (Azimut)**   | Dreht um die Azimut-Achse           | STEP 25, DIR 26, EN 27, MS1/MS2 via Pull-up = 1/16 µSteps |
 | **TMC2209 (Höhe)**     | Dreht um die Höhen-Achse            | STEP 12, DIR 13, EN 14, MS1/MS2 via Pull-up = 1/16 µSteps |
 | **OLED (SSD1306)**     | Zeigt alles an, außer Mitleid       | I²C: SDA 21, SCL 22 (HID-ESP32-WROOM) |
@@ -99,6 +100,24 @@ und irgendwann sagen: „Lauf, kleiner ESP, lauf mit den Sternen.“
 - **GND verbinden:** Gemeinsamer Bezugspunkt für UART und Sensoren
 - Optional: **5 V / 3.3 V** gemeinsam einspeisen, wenn beide Boards aus derselben Quelle versorgt werden
 - Hinweis: Der Link nutzt jetzt einen dedizierten Hardware-UART. USB-Debug-Ausgaben laufen parallel weiter, ohne das Protokoll zu stören.
+
+### 🔋 Stromversorgung & Entstörung
+
+- **Eingang 12 V**: führt sowohl den beiden TMC2209-Modulen (VM-Pins) als auch dem Eingang des LM2596 Step-Down-Reglers zu.
+- **LM2596**: wandelt 12 V auf stabile 5 V. Der 5 V-Ausgang speist den ESP32 (Main) sowie über dessen 5 V-Pin das HID-Board.
+- **ESP32 HID**: wird über den 5 V-Pin des ESP32 Main versorgt (gemeinsame Masse verbinden).
+- **GND**: Alle Module (12 V, Step-Down, ESP32, TMC2209, Peripherie) sternförmig auf einen gemeinsamen Massepunkt führen.
+
+#### Entstörkondensatoren
+
+| Position | Typ | Wert | Anschluss | Zweck |
+| --- | --- | --- | --- | --- |
+| Direkt am LM2596-Eingang | Elektrolyt | 47 µF | VIN+↔GND (LM2596) | Stützt bei Spannungseinbrüchen |
+| Direkt am LM2596-Eingang | Keramik | 100 nF | VIN+↔GND (LM2596) | Filtert Hochfrequenzstörungen |
+| Direkt am LM2596-Ausgang | Elektrolyt | 22 µF | VOUT+↔GND (LM2596) | Stabilisiert die Regelschleife |
+| Direkt am LM2596-Ausgang | Keramik | 100 nF | VOUT+↔GND (LM2596) | Fängt hochfrequente Störungen ab |
+| An jedem IC (ESP32, RTC, Sensoren) | Keramik | 100 nF | VCC↔GND (je IC) | Lokale HF-Entkopplung |
+| Bei der Motorversorgung (TMC2209) | Elko + Keramik | 100 µF + 100 nF | VM↔GND (je TMC2209) | Dämpft Versorgungsspitzen der Motoren |
 
 Diese Belegung entspricht exakt den Konstanten in [`config.h`](config.h) und stellt sicher, dass jede Komponente am richtigen Controller hängt – auch wenn die Pins im Code historisch als `EN_RA/EN_DEC` benannt sind, werden sie inzwischen für Azimut- und Höhenachse genutzt.【F:config.h†L11-L32】
 
