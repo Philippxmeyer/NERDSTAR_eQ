@@ -8,6 +8,7 @@ Diese Anleitung führt dich Schritt für Schritt durch Inbetriebnahme und Bedien
    - ESP32 mit TMC2209-Treibern für Azimut- und Höhenachse (Alt/Az)
    - OLED-Display (SSD1306), Rotary-Encoder, KY-023-Joystick
    - DS3231-RTC (I²C)
+   - LM2596 Step-Down-Modul zur Versorgung der 5 V-Schiene aus 12 V
 2. **Katalog**
    - Der komplette Objektkatalog liegt fest im EEPROM. Eine SD-Karte ist nicht mehr erforderlich.
    - Anpassungen erfolgen über [`data/catalog.xml`](../data/catalog.xml); anschließend muss die Firmware neu gebaut werden.
@@ -33,7 +34,20 @@ Diese Anleitung führt dich Schritt für Schritt durch Inbetriebnahme und Bedien
      - Main-TX (17) → HID-RX (16), Main-RX (16) ← HID-TX (17)
      - Gemeinsame Masse verbinden (GND ↔ GND)
      - Hinweis: Der Link nutzt einen dedizierten Hardware-UART. USB-Debug-Ausgaben bleiben unabhängig.
-6. **Firmware flashen**
+   - **Stromversorgung**
+     - 12 V-Eingang speist die VM-Pins beider TMC2209 sowie den Eingang des LM2596.
+     - LM2596-Ausgang auf stabile 5 V einstellen; damit den ESP32 (Main) und über dessen 5 V-Pin die HID-Einheit versorgen.
+     - Alle Masseleitungen sternförmig auf einen gemeinsamen Punkt führen.
+6. **Entstörkondensatoren setzen**
+   | Position | Typ | Wert | Anschluss | Zweck |
+   | --- | --- | --- | --- | --- |
+   | Direkt am LM2596-Eingang | Elektrolyt | 47 µF | VIN+↔GND (LM2596) | Stützt bei Spannungseinbrüchen |
+   | Direkt am LM2596-Eingang | Keramik | 100 nF | VIN+↔GND (LM2596) | Filtert Hochfrequenzstörungen |
+   | Direkt am LM2596-Ausgang | Elektrolyt | 22 µF | VOUT+↔GND (LM2596) | Stabilisiert die Regelschleife |
+   | Direkt am LM2596-Ausgang | Keramik | 100 nF | VOUT+↔GND (LM2596) | Fängt hochfrequente Störungen ab |
+   | An jedem IC (ESP32, RTC, Sensoren) | Keramik | 100 nF | VCC↔GND (je IC) | Lokale HF-Entkopplung |
+   | Bei der Motorversorgung (TMC2209) | Elko + Keramik | 100 µF + 100 nF | VM↔GND (je TMC2209) | Dämpft Versorgungsspitzen der Motoren |
+7. **Firmware flashen**
    - Bibliotheken installieren (`Adafruit_SSD1306`, `Adafruit_GFX`, `RTClib`)
    - Sketch `NERDSTAR.ino` mit den neuen Modulen kompilieren und auf die Boards flashen (HID & Main: Board `ESP32 Dev Module`).
    - USB-Seriell (115200 Baud) zeigt beim Booten Statusmeldungen beider Controller.
