@@ -21,6 +21,7 @@
 #include "motion.h"
 #include "planets.h"
 #include "state.h"
+#include "stellarium_link.h"
 #include "storage.h"
 #include "text_utils.h"
 #include "time_utils.h"
@@ -350,8 +351,9 @@ constexpr int kPolarAlignMenuBackIndex = 3;
 int setupMenuIndex = 0;
 int setupMenuScroll = 0;
 constexpr const char* kSetupMenuItems[] = {
-    "Set RTC",       "Set Location", "Cal Joystick", "Axis Setup", "Cal Axes",
-    "Goto Speed",    "Pan Speed",    "Cal Backlash", "WiFi OTA",    "Back"};
+    "Set RTC",      "Set Location", "Cal Joystick", "Axis Setup",
+    "Cal Axes",     "Goto Speed",   "Pan Speed",    "Cal Backlash",
+    "WiFi OTA",     "WiFi AP",      "Stellarium",   "Back"};
 constexpr size_t kSetupMenuCount = sizeof(kSetupMenuItems) / sizeof(kSetupMenuItems[0]);
 
 constexpr int kSetupMenuRtcIndex = 0;
@@ -363,7 +365,9 @@ constexpr int kSetupMenuGotoSpeedIndex = 5;
 constexpr int kSetupMenuPanSpeedIndex = 6;
 constexpr int kSetupMenuBacklashIndex = 7;
 constexpr int kSetupMenuWifiIndex = 8;
-constexpr int kSetupMenuBackIndex = 9;
+constexpr int kSetupMenuWifiApIndex = 9;
+constexpr int kSetupMenuStellariumIndex = 10;
+constexpr int kSetupMenuBackIndex = 11;
 
 int catalogTypeIndex = 0;
 int catalogTypeObjectIndex = 0;
@@ -408,6 +412,14 @@ String infoMessage;
 uint32_t infoUntil = 0;
 portMUX_TYPE displayMux = portMUX_INITIALIZER_UNLOCKED;
 bool orientationKnown = false;
+
+struct StellariumStatusView {
+  bool connected;
+  double raHours;
+  double decDegrees;
+};
+
+StellariumStatusView stellariumStatus{false, 0.0, 0.0};
 
 struct OrientationModel {
   OrientationModel();
@@ -1084,6 +1096,26 @@ bool altAzToRaDec(const DateTime& when,
   return true;
 }
 
+bool computeCurrentEquatorial(double& raHours, double& decDegrees) {
+  if (!orientationKnown) {
+    return false;
+  }
+  double physicalAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
+  double physicalAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
+  double skyAz = orientationModel.toSkyAz(physicalAz);
+  double skyAlt = orientationModel.toSkyAlt(physicalAlt);
+  DateTime now = currentDateTime();
+  return altAzToRaDec(now, skyAz, skyAlt, raHours, decDegrees);
+}
+
+void setStellariumStatus(bool connected, double raHours, double decDegrees) {
+  stellariumStatus.connected = connected;
+  if (connected) {
+    stellariumStatus.raHours = raHours;
+    stellariumStatus.decDegrees = decDegrees;
+  }
+}
+
 GotoProfileSteps toProfileSteps(const GotoProfile& profile, const AxisCalibration& cal) {
   GotoProfileSteps result{};
   result.maxSpeedAz = profile.maxSpeedDegPerSec * cal.stepsPerDegreeAz;
@@ -1156,6 +1188,24 @@ void drawStatus(bool diagnostics) {
     display.print(systemState.polarAligned ? "Yes" : "No");
     display.print("  Trk: ");
     display.print(systemState.trackingActive ? "On" : "Off");
+  }
+
+  if (stellariumStatus.connected) {
+    if (int y = nextY(); y >= 0) {
+      display.setCursor(0, y);
+      display.print("Stellarium: On");
+    }
+    if (int y = nextY(); y >= 0) {
+      char raBuffer[24];
+      char decBuffer[24];
+      formatRa(stellariumStatus.raHours, raBuffer, sizeof(raBuffer));
+      formatDec(stellariumStatus.decDegrees, decBuffer, sizeof(decBuffer));
+      display.setCursor(0, y);
+      display.print("IST: ");
+      display.print(raBuffer);
+      display.print(" ");
+      display.print(decBuffer);
+    }
   }
 
   if (diagnostics) {
@@ -1416,6 +1466,22 @@ void drawSetupMenu() {
         display.print(wifi_ota::isConnected() ? ": On" : ": Conn");
       } else {
         display.print(": Off");
+      }
+    } else if (index == kSetupMenuWifiApIndex) {
+      if (!stellarium_link::accessPointActive()) {
+        display.print(": Off");
+      } else if (stellarium_link::clientConnected()) {
+        display.print(": Conn");
+      } else {
+        display.print(": On");
+      }
+    } else if (index == kSetupMenuStellariumIndex) {
+      if (stellarium_link::clientConnected()) {
+        display.print(": Active");
+      } else if (stellarium_link::accessPointActive()) {
+        display.print(": Waiting");
+      } else {
+        display.print(": Idle");
       }
     }
     if (selected) {
@@ -2826,6 +2892,8 @@ void abortGoto() {
   }
 }
 
+void abortGotoFromNetwork() { abortGoto(); }
+
 void updateTracking() {
   if (gotoRuntime.active || systemState.gotoActive) {
     motion::setTrackingRates(0.0, 0.0);
@@ -2951,6 +3019,10 @@ bool startGotoToCoordinates(double raHours, double decDegrees, const String& lab
     return computeManualTarget(raHours, decDegrees, start, secondsAhead, outRa, outDec, azDeg, altDeg, targetTime);
   };
   return planGotoTarget(label, -1, compute);
+}
+
+bool requestGotoFromNetwork(double raHours, double decDegrees, const String& label) {
+  return startGotoToCoordinates(raHours, decDegrees, label);
 }
 
 bool startParkPosition() {
@@ -3227,6 +3299,9 @@ void handleSetupMenuInput(int delta) {
         break;
       }
       bool enable = !wifi_ota::isEnabled();
+      if (enable && stellarium_link::accessPointActive()) {
+        stellarium_link::disableAccessPoint();
+      }
       wifi_ota::setEnabled(enable);
       String error;
       if (!comm::call("SET_WIFI_ENABLED", {enable ? "1" : "0"}, nullptr, &error)) {
@@ -3237,6 +3312,28 @@ void handleSetupMenuInput(int delta) {
         showInfo(String("WiFi: ") + wifi_ota::ssid(), 2500);
       } else {
         showInfo("WiFi disabled", 1500);
+      }
+      break;
+    }
+    case kSetupMenuWifiApIndex: {
+      bool enable = !stellarium_link::accessPointActive();
+      if (enable) {
+        if (stellarium_link::enableAccessPoint()) {
+          showInfo(String("AP: ") + stellarium_link::accessPointSsid(), 2500);
+        } else {
+          showInfo("AP failed", 2000);
+        }
+      } else {
+        stellarium_link::disableAccessPoint();
+        showInfo("AP disabled", 1500);
+      }
+      break;
+    }
+    case kSetupMenuStellariumIndex: {
+      if (stellarium_link::clientConnected()) {
+        stellarium_link::forceDisconnectClient();
+      } else {
+        showInfo("No Stellarium client", 2000);
       }
       break;
     }

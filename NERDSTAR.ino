@@ -13,6 +13,7 @@
 #include "display_menu.h"
 #include "input.h"
 #include "motion.h"
+#include "stellarium_link.h"
 #include "state.h"
 #include "storage.h"
 
@@ -54,6 +55,7 @@ void setup() {
   initDebugSerial();
   debug::recordEvent("setup_start");
   wifi_ota::init();
+  stellarium_link::init();
   debug::recordEvent("wifi_ota_init");
   comm::initLink();
   debug::recordEvent("comm_init");
@@ -125,6 +127,7 @@ void loop() {
   debug::recordEvent("loop_after_comm");
   display_menu::update();
   display_menu::handleInput();
+  stellarium_link::update();
   debug::recordEvent("loop_after_ui");
 
   float rawX = input::getJoystickNormalizedX();
