@@ -16,6 +16,7 @@ Diese Anleitung führt dich Schritt für Schritt durch Inbetriebnahme und Bedien
 3. **WLAN (optional)**
    - Zugangsdaten können in [`data/eeprom_template.json`](../data/eeprom_template.json) hinterlegt werden.
    - Beim Flashen der vorbereiteten EEPROM-Daten stehen die Credentials beiden Controllern für WiFi OTA & NTP zur Verfügung.【F:data/eeprom_template.json†L1-L6】
+   - Zusätzlich kann der HID-ESP32 jederzeit einen eigenen Access Point (`SSID = "NERDSTAR"`, `Passwort = "stardust42"`) für Stellarium starten – ganz ohne Hausnetz.
 4. **Geräterolle wählen**
    - In [`role_config.h`](../role_config.h) wird gesteuert, welche Variante kompiliert wird. Standardmäßig ist `DEVICE_ROLE_HID` aktiv.
    - Für das Hauptsteuerungs-Board beim Kompilieren den Define `DEVICE_ROLE_MAIN` setzen (z. B. `arduino-cli compile --build-property build.extra_flags=-DDEVICE_ROLE_MAIN`). Alternativ kann der Define temporär vor dem `#include "role_config.h"` in `NERDSTAR.ino` ergänzt werden.
@@ -135,6 +136,17 @@ Diese Anleitung führt dich Schritt für Schritt durch Inbetriebnahme und Bedien
 1. `Setup → WiFi OTA` zeigt den aktuellen Status (`NoCfg`, `Off`, `Conn`, `On`).【F:display_menu.cpp†L724-L737】
 2. Encoder drücken schaltet WLAN für beide ESP32 um, sofern Credentials vorhanden sind. Bei Erfolg erscheinen SSID oder Fehlerhinweise.【F:display_menu.cpp†L2248-L2281】
 3. Aktives WLAN ermöglicht OTA-Updates und wiederholte NTP-Synchronisation der Systemzeit.【F:wifi_ota.cpp†L64-L149】
+
+### 5.9 WiFi Access Point
+1. `Setup → WiFi AP` startet oder stoppt den integrierten Access Point (`SSID = "NERDSTAR"`, `Passwort = "stardust42"`).【F:config.h†L54-L60】
+2. Die Menüzeile zeigt `Off`, `On` oder `Conn` – so erkennst du sofort, ob das iPhone bereits verbunden ist.【F:display_menu.cpp†L1448-L1485】
+3. Beim Aktivieren wird ein eventuell laufendes OTA-/NTP-WLAN automatisch abgeschaltet; genau so deaktiviert sich der AP wieder, wenn du WiFi OTA einschaltest.【F:display_menu.cpp†L3309-L3331】
+
+### 5.10 Stellarium-Link
+1. Nach erfolgreicher WLAN-Verbindung in Stellarium Plus einen neuen Teleskop-Eintrag mit Protokoll „Meade LX200“ (oder „Stellarium Telescope“) anlegen und Port `10001` verwenden.【F:config.h†L62-L64】
+2. Sobald die Verbindung steht, erscheint `Stellarium: On` inklusive der laufend berechneten IST-RA/Dec auf dem Statusbildschirm.【F:display_menu.cpp†L1168-L1198】
+3. Du kannst jederzeit weiter mit dem Joystick slewen; Stellarium-Kommandos werden einfach zusätzlich entgegengenommen und starten bei Bedarf ein automatisches Goto.【F:stellarium_link.cpp†L75-L137】
+4. `Setup → Stellarium` trennt die aktuelle Sitzung gezielt – praktisch, wenn du vom Rotary-Encoder aus die Verbindung beenden möchtest.【F:display_menu.cpp†L1478-L1498】【F:display_menu.cpp†L3332-L3344】
 
 ## 6. Katalog und Goto
 

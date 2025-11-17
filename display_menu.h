@@ -27,6 +27,10 @@ void update();
 void setSdAvailable(bool available);
 void stopTracking();
 void applyNetworkTime(time_t utcEpoch);
+bool computeCurrentEquatorial(double& raHours, double& decDegrees);
+bool requestGotoFromNetwork(double raHours, double decDegrees, const String& label);
+void abortGotoFromNetwork();
+void setStellariumStatus(bool connected, double raHours, double decDegrees);
 
 } // namespace display_menu
 

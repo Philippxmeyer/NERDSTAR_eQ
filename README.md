@@ -31,6 +31,8 @@ und ein Hauch Größenwahn ergeben zusammen ein
 | 🌍 **Standortverwaltung**     | Breitengrad, Längengrad & Zeitzone im Setup-Menü pflegen für korrekte Alt/Az-Berechnungen |
 | 🪐 **Planetenberechnung**     | Schlanker Algorithmus liefert aktuelle RA/Dec für klassische Planeten       |
 | 📡 **WiFi OTA + NTP**         | Optionales WLAN für OTA-Updates & NTP-Synchronisierung mit beiden ESP32-Rollen |
+| 📶 **Eigenes WiFi-AP**        | HID-ESP32 kann einen Access Point mit SSID „NERDSTAR“ bereitstellen – ideal fürs iPhone im Feld |
+| 🌌 **Stellarium-Bridge**      | LX200-kompatibler TCP-Server (Port 10001) nimmt Goto/Stop-Kommandos entgegen und zeigt Status/IST-Koordinaten am OLED |
 | 🔧 **Setup & Kalibrierung**   | Menü für RTC, Joystick-Zentrum, Achsen-, Backlash- & Geschwindigkeitsprofil |
 | 📺 **OLED Status Display**    | Zeigt Az/Alt, Tracking-/Goto-Status, Ziel und Diagnosewerte                 |
 | ⚙️ **µs-Timersteuerung**      | Stepper laufen so gleichmäßig, dass man sie fast atmen hört                |
@@ -189,6 +191,28 @@ Goto: --
 
 > Wenn du das siehst, weißt du wohin das Teleskop blickt.
 > Wenn nicht, hilft die [Bedienungsanleitung](docs/BEDIENUNGSANLEITUNG.md).
+
+---
+
+## 📡 Stellarium & WiFi Access Point
+
+NERDSTAR bringt jetzt ein eigenes Feld-WLAN und eine Stellarium-Schnittstelle mit:
+
+1. **Access Point starten** – `Setup → WiFi AP` schaltet den Soft-AP des HID-ESP32 um. Die Zeile zeigt `Off`, `On` oder `Conn`,
+   je nachdem ob der AP läuft und bereits ein Client verbunden ist.
+2. **iPhone verbinden** – Netzwerknamen und Passwort sind fest im Build hinterlegt (`SSID = "NERDSTAR"`, `Passwort = "stardust42"`).
+   Das iPhone kann sich direkt mit dem Controller koppeln, selbst wenn zu Hause kein WLAN verfügbar ist.
+3. **Stellarium konfigurieren** – In Stellarium Plus einen neuen Teleskop-Eintrag mit Protokoll „Meade LX200“ (oder
+   „Stellarium Telescope“) anlegen und als Port `10001` verwenden. Der ESP32 beantwortet die LX200-Befehle direkt am AP und
+   startet Goto/Stop-Kommandos so, als würden sie vom Joystick kommen.
+4. **Status überwachen** – Sobald Stellarium verbunden ist, blendet das OLED `Stellarium: On` sowie die aktuellen IST-RA/Dec
+   ein. Damit siehst du live, welche Koordinaten der Client zuletzt abgefragt hat.
+5. **Verbindung trennen** – `Setup → Stellarium` beendet per Encoder-Klick die aktuelle Client-Session (oder zeigt
+   „No Stellarium client“, falls niemand verbunden ist).
+
+Der Access Point und Stellarium-Link schließen sich mit dem regulären WLAN (OTA/NTP) gegenseitig aus: Beim Aktivieren des AP
+werden vorhandene STA-Verbindungen automatisch getrennt – genauso wird der AP beendet, sobald du wieder das Haus-WLAN
+einschaltest.
 
 ---
 

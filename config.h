@@ -73,6 +73,12 @@ constexpr uint8_t OLED_HEIGHT = 64;
 constexpr const char* WIFI_HOSTNAME_PREFIX = "nerdstar";
 constexpr const char* WIFI_STA_SSID = "Waldmeyer";       // Set to home network SSID
 constexpr const char* WIFI_STA_PASSWORD = "94650411894394693580";   // Set to home network password
+constexpr const char* WIFI_AP_SSID = "NERDSTAR";
+constexpr const char* WIFI_AP_PASSWORD = "stardust42";
+constexpr uint8_t WIFI_AP_CHANNEL = 6;
+
+// Stellarium / networking configuration
+constexpr uint16_t STELLARIUM_TCP_PORT = 10001;
 
 // Astronomy constants
 constexpr double SIDEREAL_DAY_SECONDS = 86164.0905;
