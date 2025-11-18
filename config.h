@@ -5,6 +5,18 @@
 
 #include "role_config.h"
 
+// Display driver selection ---------------------------------------------------
+//
+// Define CONFIG_DISPLAY_DRIVER to either DISPLAY_DRIVER_SSD1306 or
+// DISPLAY_DRIVER_SH1106 before including this header if you need to override
+// the default. This allows using either display without editing the menu code.
+#define DISPLAY_DRIVER_SSD1306 1
+#define DISPLAY_DRIVER_SH1106 2
+
+#ifndef CONFIG_DISPLAY_DRIVER
+#define CONFIG_DISPLAY_DRIVER DISPLAY_DRIVER_SH1106
+#endif
+
 namespace config {
 
 // Role-specific pin mappings -------------------------------------------------

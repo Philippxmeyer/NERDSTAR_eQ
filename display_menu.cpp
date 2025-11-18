@@ -3,8 +3,13 @@
 #if defined(DEVICE_ROLE_HID)
 
 #include <Adafruit_GFX.h>
-// #include <Adafruit_SSD1306.h>
+#if CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SSD1306
+#include <Adafruit_SSD1306.h>
+#elif CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SH1106
 #include <Adafruit_SH110X.h>
+#else
+#error "Unsupported CONFIG_DISPLAY_DRIVER value"
+#endif
 #include <RTClib.h>
 #include <Wire.h>
 #include <algorithm>
@@ -12,12 +17,13 @@
 #include <stdlib.h>
 #include <limits.h>
 
+#include "config.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
 #include "catalog.h"
 #include "comm.h"
-#include "config.h"
 #include "input.h"
 #include "motion.h"
 #include "planets.h"
@@ -34,6 +40,7 @@ void applyOrientationState(bool known);
 
 namespace {
 
+#if CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SH1106
 #if !defined(SSD1306_WHITE)
 #define SSD1306_WHITE SH110X_WHITE
 #endif
@@ -46,8 +53,12 @@ namespace {
 #if !defined(SSD1306_SWITCHCAPVCC)
 #define SSD1306_SWITCHCAPVCC SH110X_SWITCHCAPVCC
 #endif
+using DisplayDriver = Adafruit_SH1106G;
+#elif CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SSD1306
+using DisplayDriver = Adafruit_SSD1306;
+#endif
 
-Adafruit_SH1106G display(config::OLED_WIDTH, config::OLED_HEIGHT, &Wire, -1);
+DisplayDriver display(config::OLED_WIDTH, config::OLED_HEIGHT, &Wire, -1);
 RTC_DS3231 rtc;
 bool rtcAvailable = false;
 SemaphoreHandle_t i2cMutex = nullptr;
