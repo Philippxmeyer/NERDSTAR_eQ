@@ -53,7 +53,7 @@ namespace {
 #if !defined(SSD1306_SWITCHCAPVCC)
 #define SSD1306_SWITCHCAPVCC SH110X_SWITCHCAPVCC
 #endif
-using DisplayDriver = Adafruit_SH1106G;
+using DisplayDriver = Adafruit_SH110X;
 #elif CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SSD1306
 using DisplayDriver = Adafruit_SSD1306;
 #endif
