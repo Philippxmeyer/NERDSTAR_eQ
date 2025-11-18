@@ -3,7 +3,8 @@
 #if defined(DEVICE_ROLE_HID)
 
 #include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+// #include <Adafruit_SSD1306.h>
+#include <Adafruit_SH110X.h>
 #include <RTClib.h>
 #include <Wire.h>
 #include <algorithm>
