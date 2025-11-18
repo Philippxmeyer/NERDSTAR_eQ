@@ -32,9 +32,22 @@ namespace display_menu {
 
 void applyOrientationState(bool known);
 
-namespace {  
+namespace {
 
-Adafruit_SSD1306 display(config::OLED_WIDTH, config::OLED_HEIGHT, &Wire, -1);
+#if !defined(SSD1306_WHITE)
+#define SSD1306_WHITE SH110X_WHITE
+#endif
+#if !defined(SSD1306_BLACK)
+#define SSD1306_BLACK SH110X_BLACK
+#endif
+#if !defined(SSD1306_INVERSE)
+#define SSD1306_INVERSE SH110X_INVERSE
+#endif
+#if !defined(SSD1306_SWITCHCAPVCC)
+#define SSD1306_SWITCHCAPVCC SH110X_SWITCHCAPVCC
+#endif
+
+Adafruit_SH1106G display(config::OLED_WIDTH, config::OLED_HEIGHT, &Wire, -1);
 RTC_DS3231 rtc;
 bool rtcAvailable = false;
 SemaphoreHandle_t i2cMutex = nullptr;
