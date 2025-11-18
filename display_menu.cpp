@@ -2,6 +2,8 @@
 
 #if defined(DEVICE_ROLE_HID)
 
+#include "config.h"
+
 #include <Adafruit_GFX.h>
 #if CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SSD1306
 #include <Adafruit_SSD1306.h>
@@ -16,8 +18,6 @@
 #include <math.h>
 #include <stdlib.h>
 #include <limits.h>
-
-#include "config.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -53,7 +53,7 @@ namespace {
 #if !defined(SSD1306_SWITCHCAPVCC)
 #define SSD1306_SWITCHCAPVCC SH110X_SWITCHCAPVCC
 #endif
-using DisplayDriver = Adafruit_SH110X;
+using DisplayDriver = Adafruit_SH1106G;
 #elif CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SSD1306
 using DisplayDriver = Adafruit_SSD1306;
 #endif
