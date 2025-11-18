@@ -3765,7 +3765,12 @@ void init() {
   orientationModel.loadFromConfig(storage::getConfig());
 
   auto initPeripherals = [&]() {
+#if CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SH1106
+    constexpr uint8_t kI2cAddress = 0x3C;
+    if (!display.begin(kI2cAddress, /*reset=*/true)) {
+#elif CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SSD1306
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+#endif
       // OLED init failure will be reported via on-screen message; avoid serial
       // output because the primary UART is reserved for the inter-board link.
     }
