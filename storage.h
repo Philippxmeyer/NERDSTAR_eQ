@@ -30,6 +30,7 @@ struct SystemConfig {
   double orientationAltBiasDeg;
   double orientationSampleWeight;
   uint16_t configVersion;
+  uint8_t displayContrast;
 };
 
 namespace storage {
@@ -60,6 +61,7 @@ void setJoystickOrientation(bool swapAxes, bool invertAz, bool invertAlt);
 void setMotorInversion(bool invertAz, bool invertAlt);
 void setOrientationModel(double azBiasDeg, double altBiasDeg, double sampleWeight);
 void clearOrientationModel();
+void setDisplayContrast(uint8_t contrast);
 void save();
 size_t getCatalogEntryCount();
 bool readCatalogEntry(size_t index, CatalogEntry& entry);

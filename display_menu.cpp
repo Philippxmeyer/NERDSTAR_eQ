@@ -63,6 +63,8 @@ RTC_DS3231 rtc;
 bool rtcAvailable = false;
 SemaphoreHandle_t i2cMutex = nullptr;
 StaticSemaphore_t i2cMutexBuffer;
+uint8_t activeDisplayContrast = 0x00;
+bool displayContrastInitialized = false;
 
 constexpr int kLineHeight = 8;
 constexpr float kTwoPi = 6.283185307f;
@@ -186,6 +188,7 @@ enum class UiState {
   SetRtc,
   LocationSetup,
   AxisOrientation,
+  DisplayBrightness,
   CatalogTypeBrowser,
   CatalogItemList,
   CatalogItemDetail,
@@ -312,8 +315,17 @@ struct BacklashCalibrationState {
   int64_t altEnd;
 };
 
+struct DisplayBrightnessState {
+  uint8_t brightness;
+  uint8_t initialBrightness;
+  int fieldIndex;
+  int actionIndex;
+};
+
 SpeedProfileState speedProfileState{0.0f, 0.0f, 0.0f, 0, SpeedEditMode::Goto, 0};
 BacklashCalibrationState backlashState{0, 0, 0, 0, 0};
+constexpr int kDisplayBrightnessFieldCount = 2;
+DisplayBrightnessState displayBrightnessState{0x7F, 0x7F, 0, 0};
 
 struct LocationEditState {
   double latitudeDeg;
@@ -376,9 +388,10 @@ constexpr int kPolarAlignMenuBackIndex = 3;
 int setupMenuIndex = 0;
 int setupMenuScroll = 0;
 constexpr const char* kSetupMenuItems[] = {
-    "Set RTC",      "Set Location", "Cal Joystick", "Axis Setup",
-    "Cal Axes",     "Goto Speed",   "Pan Speed",    "Cal Backlash",
-    "WiFi OTA",     "WiFi AP",      "Stellarium",   "Back"};
+    "Set RTC",       "Set Location", "Cal Joystick", "Axis Setup",
+    "Cal Axes",      "Goto Speed",   "Pan Speed",    "Cal Backlash",
+    "Display Bright", "WiFi OTA",     "WiFi AP",      "Stellarium",
+    "Back"};
 constexpr size_t kSetupMenuCount = sizeof(kSetupMenuItems) / sizeof(kSetupMenuItems[0]);
 
 constexpr int kSetupMenuRtcIndex = 0;
@@ -389,10 +402,11 @@ constexpr int kSetupMenuAxisCalIndex = 4;
 constexpr int kSetupMenuGotoSpeedIndex = 5;
 constexpr int kSetupMenuPanSpeedIndex = 6;
 constexpr int kSetupMenuBacklashIndex = 7;
-constexpr int kSetupMenuWifiIndex = 8;
-constexpr int kSetupMenuWifiApIndex = 9;
-constexpr int kSetupMenuStellariumIndex = 10;
-constexpr int kSetupMenuBackIndex = 11;
+constexpr int kSetupMenuDisplayBrightnessIndex = 8;
+constexpr int kSetupMenuWifiIndex = 9;
+constexpr int kSetupMenuWifiApIndex = 10;
+constexpr int kSetupMenuStellariumIndex = 11;
+constexpr int kSetupMenuBackIndex = 12;
 
 int catalogTypeIndex = 0;
 int catalogTypeObjectIndex = 0;
@@ -499,6 +513,20 @@ class MutexLock {
   SemaphoreHandle_t handle_;
   bool locked_;
 };
+
+void applyDisplayContrast(uint8_t contrast) {
+  if (displayContrastInitialized && activeDisplayContrast == contrast) {
+    return;
+  }
+  activeDisplayContrast = contrast;
+  displayContrastInitialized = true;
+  MutexLock lock(i2cMutex);
+  if (!lock.locked()) {
+    return;
+  }
+  display.setContrast(contrast);
+  display.display();
+}
 
 void setUiState(UiState state) {
   uiState = state;
@@ -1472,6 +1500,9 @@ void drawSetupMenu() {
       } else {
         display.print(": Off");
       }
+    } else if (index == kSetupMenuDisplayBrightnessIndex) {
+      display.print(": ");
+      display.print(storage::getConfig().displayContrast);
     } else if (index == kSetupMenuWifiApIndex) {
       if (!stellarium_link::accessPointActive()) {
         display.print(": Off");
@@ -1915,6 +1946,42 @@ void drawSpeedProfileSetup() {
   display.print("Enc=Next/Conf Joy=Cancel");
 }
 
+void drawDisplayBrightnessSetup() {
+  display.setCursor(0, 12);
+  display.print("Display Bright");
+  int y = 24;
+  bool levelSelected = displayBrightnessState.fieldIndex == 0;
+  if (levelSelected) {
+    display.fillRect(0, y, config::OLED_WIDTH, kLineHeight, SSD1306_WHITE);
+    display.setTextColor(SSD1306_BLACK);
+  } else {
+    display.setTextColor(SSD1306_WHITE);
+  }
+  display.setCursor(0, y);
+  display.printf("Level: %3u",
+                 static_cast<unsigned int>(displayBrightnessState.brightness));
+  if (levelSelected) {
+    display.setTextColor(SSD1306_WHITE);
+  }
+
+  y += kLineHeight;
+  bool actionSelected = displayBrightnessState.fieldIndex == kDisplayBrightnessFieldCount - 1;
+  if (actionSelected) {
+    display.fillRect(0, y, config::OLED_WIDTH, kLineHeight, SSD1306_WHITE);
+    display.setTextColor(SSD1306_BLACK);
+  } else {
+    display.setTextColor(SSD1306_WHITE);
+  }
+  display.setCursor(0, y);
+  display.print(displayBrightnessState.actionIndex == 0 ? "Save" : "Back");
+  if (actionSelected) {
+    display.setTextColor(SSD1306_WHITE);
+  }
+
+  display.setCursor(0, 60);
+  display.print("Enc=Next/Conf Joy=Cancel");
+}
+
 void drawBacklashCalibration() {
   display.setCursor(0, 12);
   display.print("Backlash Cal");
@@ -2019,6 +2086,15 @@ void enterPanningSpeedSetup() {
   setUiState(UiState::PanningSpeed);
 }
 
+void enterDisplayBrightnessSetup() {
+  uint8_t contrast = storage::getConfig().displayContrast;
+  displayBrightnessState.brightness = contrast;
+  displayBrightnessState.initialBrightness = contrast;
+  displayBrightnessState.fieldIndex = 0;
+  displayBrightnessState.actionIndex = 0;
+  setUiState(UiState::DisplayBrightness);
+}
+
 void handleSpeedProfileInput(int delta) {
   if (delta != 0) {
     if (speedProfileState.fieldIndex < kSpeedProfileFieldCount - 1) {
@@ -2070,6 +2146,45 @@ void handleSpeedProfileInput(int delta) {
     } else {
       showInfo(speedProfileState.mode == SpeedEditMode::Goto ? "Goto unchanged"
                                                             : "Pan unchanged");
+    }
+    setUiState(UiState::SetupMenu);
+  }
+}
+
+void handleDisplayBrightnessInput(int delta) {
+  if (delta != 0) {
+    if (displayBrightnessState.fieldIndex == 0) {
+      int value = static_cast<int>(displayBrightnessState.brightness) + delta;
+      value = std::clamp(value, 0, 255);
+      if (value != displayBrightnessState.brightness) {
+        displayBrightnessState.brightness = static_cast<uint8_t>(value);
+        applyDisplayContrast(displayBrightnessState.brightness);
+      }
+    } else {
+      int step = delta > 0 ? 1 : -1;
+      displayBrightnessState.actionIndex =
+          (displayBrightnessState.actionIndex + step + 2) % 2;
+    }
+  }
+  if (input::consumeJoystickPress()) {
+    applyDisplayContrast(displayBrightnessState.initialBrightness);
+    setUiState(UiState::SetupMenu);
+    showInfo("Display canceled");
+    return;
+  }
+  if (input::consumeEncoderClick()) {
+    if (displayBrightnessState.fieldIndex < kDisplayBrightnessFieldCount - 1) {
+      ++displayBrightnessState.fieldIndex;
+      displayBrightnessState.actionIndex = 0;
+      return;
+    }
+    if (displayBrightnessState.actionIndex == 0) {
+      storage::setDisplayContrast(displayBrightnessState.brightness);
+      showInfo("Display saved");
+      displayBrightnessState.initialBrightness = displayBrightnessState.brightness;
+    } else {
+      applyDisplayContrast(displayBrightnessState.initialBrightness);
+      showInfo("Display unchanged");
     }
     setUiState(UiState::SetupMenu);
   }
@@ -2473,6 +2588,9 @@ void render() {
       break;
     case UiState::AxisOrientation:
       drawAxisOrientationSetup();
+      break;
+    case UiState::DisplayBrightness:
+      drawDisplayBrightnessSetup();
       break;
     case UiState::CatalogTypeBrowser:
       drawCatalogTypeMenu();
@@ -3299,6 +3417,9 @@ void handleSetupMenuInput(int delta) {
     case kSetupMenuBacklashIndex:
       startBacklashCalibration();
       break;
+    case kSetupMenuDisplayBrightnessIndex:
+      enterDisplayBrightnessSetup();
+      break;
     case kSetupMenuWifiIndex: {
       if (!wifi_ota::credentialsConfigured()) {
         showInfo("WiFi creds missing", 2000);
@@ -3791,6 +3912,7 @@ void init() {
     display.setTextColor(SSD1306_WHITE);
     display.clearDisplay();
     display.display();
+    applyDisplayContrast(storage::getConfig().displayContrast);
 
     rtcAvailable = rtc.begin();
     if (!rtcAvailable) {
@@ -3956,6 +4078,9 @@ void handleInput() {
       break;
     case UiState::AxisOrientation:
       handleAxisOrientationInput(delta);
+      break;
+    case UiState::DisplayBrightness:
+      handleDisplayBrightnessInput(delta);
       break;
     case UiState::CatalogTypeBrowser:
       handleCatalogTypeInput(delta);
