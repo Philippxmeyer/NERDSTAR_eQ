@@ -94,12 +94,18 @@ String formatDec(double degrees) {
 bool parseRaCommand(const String& payload, double& hours) {
   int firstColon = payload.indexOf(':');
   int secondColon = payload.indexOf(':', firstColon + 1);
-  if (firstColon < 0 || secondColon < 0) {
+  if (firstColon < 0) {
     return false;
   }
   int h = payload.substring(0, firstColon).toInt();
-  int m = payload.substring(firstColon + 1, secondColon).toInt();
-  int s = payload.substring(secondColon + 1).toInt();
+  int m = 0;
+  int s = 0;
+  if (secondColon < 0) {
+    m = payload.substring(firstColon + 1).toInt();
+  } else {
+    m = payload.substring(firstColon + 1, secondColon).toInt();
+    s = payload.substring(secondColon + 1).toInt();
+  }
   if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) {
     return false;
   }
@@ -120,12 +126,18 @@ bool parseDecCommand(const String& payload, double& degrees) {
   }
   int starIndex = payload.indexOf('*', start);
   int colonIndex = payload.indexOf(':', starIndex + 1);
-  if (starIndex < 0 || colonIndex < 0) {
+  if (starIndex < 0) {
     return false;
   }
   int d = payload.substring(start, starIndex).toInt();
-  int m = payload.substring(starIndex + 1, colonIndex).toInt();
-  int s = payload.substring(colonIndex + 1).toInt();
+  int m = 0;
+  int s = 0;
+  if (colonIndex < 0) {
+    m = payload.substring(starIndex + 1).toInt();
+  } else {
+    m = payload.substring(starIndex + 1, colonIndex).toInt();
+    s = payload.substring(colonIndex + 1).toInt();
+  }
   if (d < 0 || d > 90 || m < 0 || m > 59 || s < 0 || s > 59) {
     return false;
   }
@@ -181,20 +193,20 @@ String handleCommand(const String& command) {
   }
   if (normalized.startsWith(":MS")) {
     if (!g_pendingRaValid || !g_pendingDecValid) {
-      return "0";
+      return "1";
     }
     bool ok = display_menu::requestGotoFromNetwork(g_pendingRaHours, g_pendingDecDegrees,
                                                    "Stellarium");
     if (ok) {
       resetPendingTarget();
     }
-    return ok ? "1" : "0";
+    return ok ? "0" : "1";
   }
   if (normalized.startsWith(":Q")) {
     display_menu::abortGotoFromNetwork();
     display_menu::stopTracking();
     motion::stopAll();
-    return "1";
+    return "";
   }
   if (normalized.startsWith(":GVP")) {
     return String("NERDSTAR");
@@ -206,7 +218,7 @@ String handleCommand(const String& command) {
 }
 
 void sendResponse(const String& response) {
-  if (!g_client) {
+  if (!g_client || response.isEmpty()) {
     return;
   }
   g_client.print(response);
@@ -220,6 +232,14 @@ void handleClientInput() {
       break;
     }
     g_lastClientActivityMs = millis();
+
+    // LX200 handshake / tracking query (used by Stellarium Mobile)
+    if (raw == 0x06) {
+      // 'L' = tracking off, 'P' = tracking on. Report tracking enabled.
+      g_client.write('P');
+      continue;
+    }
+
     char c = static_cast<char>(raw);
     if (c == '\r' || c == '\n') {
       continue;
