@@ -10,7 +10,7 @@
 namespace {
 
 constexpr uint32_t kConfigMagic = 0x4E455244;  // "NERD"
-constexpr uint16_t kConfigVersion = 2;
+constexpr uint16_t kConfigVersion = 3;
 constexpr size_t kConfigStorageSize = 256;
 bool eepromReady = false;
 
@@ -36,7 +36,8 @@ SystemConfig systemConfig{kConfigMagic,
                           0.0,
                           0.0,
                           0.0,
-                          kConfigVersion};
+                          kConfigVersion,
+                          0x7F};
 
 static_assert(sizeof(SystemConfig) <= kConfigStorageSize, "SystemConfig too large for config storage");
 
@@ -80,6 +81,7 @@ void applyDefaults() {
   systemConfig.orientationAltBiasDeg = 0.0;
   systemConfig.orientationSampleWeight = 0.0;
   systemConfig.configVersion = kConfigVersion;
+  systemConfig.displayContrast = 0x7F;
 }
 
 bool profileIsInvalid(const GotoProfile& profile) {
@@ -168,7 +170,7 @@ bool init() {
       systemConfig.orientationSampleWeight = 0.0;
       needsSave = true;
     }
-    if (systemConfig.configVersion != kConfigVersion) {
+    if (systemConfig.configVersion < 2) {
       systemConfig.joystickSwapAxes = 0;
       systemConfig.joystickInvertAz = 0;
       systemConfig.joystickInvertAlt = 0;
@@ -177,6 +179,13 @@ bool init() {
       systemConfig.orientationAzBiasDeg = 0.0;
       systemConfig.orientationAltBiasDeg = 0.0;
       systemConfig.orientationSampleWeight = 0.0;
+      needsSave = true;
+    }
+    if (systemConfig.configVersion < 3) {
+      systemConfig.displayContrast = 0x7F;
+      needsSave = true;
+    }
+    if (systemConfig.configVersion != kConfigVersion) {
       systemConfig.configVersion = kConfigVersion;
       needsSave = true;
     }
@@ -279,6 +288,14 @@ void setOrientationModel(double azBiasDeg, double altBiasDeg, double sampleWeigh
 
 void clearOrientationModel() {
   setOrientationModel(0.0, 0.0, 0.0);
+}
+
+void setDisplayContrast(uint8_t contrast) {
+  if (systemConfig.displayContrast == contrast) {
+    return;
+  }
+  systemConfig.displayContrast = contrast;
+  saveConfigInternal();
 }
 
 void save() { saveConfigInternal(); }
