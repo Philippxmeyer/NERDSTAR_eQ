@@ -140,7 +140,8 @@ Diese Anleitung führt dich Schritt für Schritt durch Inbetriebnahme und Bedien
 ### 5.9 WiFi Access Point
 1. `Setup → WiFi AP` startet oder stoppt den integrierten Access Point (`SSID = "NERDSTAR"`, `Passwort = "stardust42"`).【F:config.h†L54-L60】
 2. Die Menüzeile zeigt `Off`, `On` oder `Conn` – so erkennst du sofort, ob das iPhone bereits verbunden ist.【F:display_menu.cpp†L1448-L1485】
-3. Beim Aktivieren wird ein eventuell laufendes OTA-/NTP-WLAN automatisch abgeschaltet; genau so deaktiviert sich der AP wieder, wenn du WiFi OTA einschaltest.【F:display_menu.cpp†L3309-L3331】
+3. Ist der AP aktiv, blendet dieselbe Zeile automatisch die Host-IP (typischerweise `192.168.4.1`) ein – diese Adresse muss in Stellarium als Host eingetragen werden.【F:display_menu.cpp†L1466-L1485】
+4. Beim Aktivieren wird ein eventuell laufendes OTA-/NTP-WLAN automatisch abgeschaltet; genau so deaktiviert sich der AP wieder, wenn du WiFi OTA einschaltest.【F:display_menu.cpp†L3309-L3331】
 
 ### 5.10 Stellarium-Link
 1. Nach erfolgreicher WLAN-Verbindung in Stellarium Plus einen neuen Teleskop-Eintrag mit Protokoll „Meade LX200“ (oder „Stellarium Telescope“) anlegen und Port `10001` verwenden.【F:config.h†L62-L64】
