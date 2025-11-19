@@ -2,9 +2,16 @@
 
 #if defined(DEVICE_ROLE_HID)
 
+#include "config.h"
+
 #include <Adafruit_GFX.h>
-// #include <Adafruit_SSD1306.h>
+#if CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SSD1306
+#include <Adafruit_SSD1306.h>
+#elif CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SH1106
 #include <Adafruit_SH110X.h>
+#else
+#error "Unsupported CONFIG_DISPLAY_DRIVER value"
+#endif
 #include <RTClib.h>
 #include <Wire.h>
 #include <algorithm>
@@ -17,7 +24,6 @@
 
 #include "catalog.h"
 #include "comm.h"
-#include "config.h"
 #include "input.h"
 #include "motion.h"
 #include "planets.h"
@@ -32,9 +38,27 @@ namespace display_menu {
 
 void applyOrientationState(bool known);
 
-namespace {  
+namespace {
 
-Adafruit_SSD1306 display(config::OLED_WIDTH, config::OLED_HEIGHT, &Wire, -1);
+#if CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SH1106
+#if !defined(SSD1306_WHITE)
+#define SSD1306_WHITE SH110X_WHITE
+#endif
+#if !defined(SSD1306_BLACK)
+#define SSD1306_BLACK SH110X_BLACK
+#endif
+#if !defined(SSD1306_INVERSE)
+#define SSD1306_INVERSE SH110X_INVERSE
+#endif
+#if !defined(SSD1306_SWITCHCAPVCC)
+#define SSD1306_SWITCHCAPVCC SH110X_SWITCHCAPVCC
+#endif
+using DisplayDriver = Adafruit_SH1106G;
+#elif CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SSD1306
+using DisplayDriver = Adafruit_SSD1306;
+#endif
+
+DisplayDriver display(config::OLED_WIDTH, config::OLED_HEIGHT, &Wire, -1);
 RTC_DS3231 rtc;
 bool rtcAvailable = false;
 SemaphoreHandle_t i2cMutex = nullptr;
@@ -1095,26 +1119,6 @@ bool altAzToRaDec(const DateTime& when,
   raHours = raDeg / 15.0;
   decDegrees = radToDeg(decRad);
   return true;
-}
-
-bool computeCurrentEquatorial(double& raHours, double& decDegrees) {
-  if (!orientationKnown) {
-    return false;
-  }
-  double physicalAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
-  double physicalAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
-  double skyAz = orientationModel.toSkyAz(physicalAz);
-  double skyAlt = orientationModel.toSkyAlt(physicalAlt);
-  DateTime now = currentDateTime();
-  return altAzToRaDec(now, skyAz, skyAlt, raHours, decDegrees);
-}
-
-void setStellariumStatus(bool connected, double raHours, double decDegrees) {
-  stellariumStatus.connected = connected;
-  if (connected) {
-    stellariumStatus.raHours = raHours;
-    stellariumStatus.decDegrees = decDegrees;
-  }
 }
 
 GotoProfileSteps toProfileSteps(const GotoProfile& profile, const AxisCalibration& cal) {
@@ -2893,8 +2897,6 @@ void abortGoto() {
   }
 }
 
-void abortGotoFromNetwork() { abortGoto(); }
-
 void updateTracking() {
   if (gotoRuntime.active || systemState.gotoActive) {
     motion::setTrackingRates(0.0, 0.0);
@@ -3020,10 +3022,6 @@ bool startGotoToCoordinates(double raHours, double decDegrees, const String& lab
     return computeManualTarget(raHours, decDegrees, start, secondsAhead, outRa, outDec, azDeg, altDeg, targetTime);
   };
   return planGotoTarget(label, -1, compute);
-}
-
-bool requestGotoFromNetwork(double raHours, double decDegrees, const String& label) {
-  return startGotoToCoordinates(raHours, decDegrees, label);
 }
 
 bool startParkPosition() {
@@ -3696,6 +3694,32 @@ void handlePolarAlignInput() {
 
 }  // namespace
 
+bool computeCurrentEquatorial(double& raHours, double& decDegrees) {
+  if (!orientationKnown) {
+    return false;
+  }
+  double physicalAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
+  double physicalAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
+  double skyAz = orientationModel.toSkyAz(physicalAz);
+  double skyAlt = orientationModel.toSkyAlt(physicalAlt);
+  DateTime now = currentDateTime();
+  return altAzToRaDec(now, skyAz, skyAlt, raHours, decDegrees);
+}
+
+void setStellariumStatus(bool connected, double raHours, double decDegrees) {
+  stellariumStatus.connected = connected;
+  if (connected) {
+    stellariumStatus.raHours = raHours;
+    stellariumStatus.decDegrees = decDegrees;
+  }
+}
+
+bool requestGotoFromNetwork(double raHours, double decDegrees, const String& label) {
+  return startGotoToCoordinates(raHours, decDegrees, label);
+}
+
+void abortGotoFromNetwork() { abortGoto(); }
+
 void applyNetworkTime(time_t utcEpoch) {
   if (rtcAvailable) {
     MutexLock lock(i2cMutex);
@@ -3741,7 +3765,12 @@ void init() {
   orientationModel.loadFromConfig(storage::getConfig());
 
   auto initPeripherals = [&]() {
+#if CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SH1106
+    constexpr uint8_t kI2cAddress = 0x3C;
+    if (!display.begin(kI2cAddress, /*reset=*/true)) {
+#elif CONFIG_DISPLAY_DRIVER == DISPLAY_DRIVER_SSD1306
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+#endif
       // OLED init failure will be reported via on-screen message; avoid serial
       // output because the primary UART is reserved for the inter-board link.
     }

@@ -6,8 +6,8 @@
 // options). Exactly one role must be selected.
 #ifndef DEVICE_ROLE_MAIN
 #ifndef DEVICE_ROLE_HID
- #define DEVICE_ROLE_HID
-// #define DEVICE_ROLE_MAIN
+// #define DEVICE_ROLE_HID
+ #define DEVICE_ROLE_MAIN
 #endif
 #endif
 
