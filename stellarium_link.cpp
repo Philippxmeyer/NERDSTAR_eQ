@@ -135,10 +135,13 @@ bool parseDecCommand(const String& payload, double& degrees) {
 }
 
 String handleCommand(const String& command) {
-  if (command.length() < 2 || command[0] != ':') {
+  String normalized = command;
+  normalized.trim();
+  normalized.toUpperCase();
+  if (normalized.length() < 2 || normalized[0] != ':') {
     return "";
   }
-  if (command.startsWith(":GR")) {
+  if (normalized.startsWith(":GR")) {
     double ra = 0.0;
     double dec = 0.0;
     if (!display_menu::computeCurrentEquatorial(ra, dec)) {
@@ -146,7 +149,7 @@ String handleCommand(const String& command) {
     }
     return formatRa(ra);
   }
-  if (command.startsWith(":GD")) {
+  if (normalized.startsWith(":GD")) {
     double ra = 0.0;
     double dec = 0.0;
     if (!display_menu::computeCurrentEquatorial(ra, dec)) {
@@ -154,8 +157,8 @@ String handleCommand(const String& command) {
     }
     return formatDec(dec);
   }
-  if (command.startsWith(":Sr")) {
-    String payload = command.substring(3);
+  if (normalized.startsWith(":SR")) {
+    String payload = normalized.substring(3);
     double ra = 0.0;
     if (!parseRaCommand(payload, ra)) {
       g_pendingRaValid = false;
@@ -165,8 +168,8 @@ String handleCommand(const String& command) {
     g_pendingRaValid = true;
     return "1";
   }
-  if (command.startsWith(":Sd")) {
-    String payload = command.substring(3);
+  if (normalized.startsWith(":SD")) {
+    String payload = normalized.substring(3);
     double dec = 0.0;
     if (!parseDecCommand(payload, dec)) {
       g_pendingDecValid = false;
@@ -176,7 +179,7 @@ String handleCommand(const String& command) {
     g_pendingDecValid = true;
     return "1";
   }
-  if (command.startsWith(":MS")) {
+  if (normalized.startsWith(":MS")) {
     if (!g_pendingRaValid || !g_pendingDecValid) {
       return "0";
     }
@@ -187,16 +190,16 @@ String handleCommand(const String& command) {
     }
     return ok ? "1" : "0";
   }
-  if (command.startsWith(":Q")) {
+  if (normalized.startsWith(":Q")) {
     display_menu::abortGotoFromNetwork();
     display_menu::stopTracking();
     motion::stopAll();
     return "1";
   }
-  if (command.startsWith(":GVP")) {
+  if (normalized.startsWith(":GVP")) {
     return String("NERDSTAR");
   }
-  if (command.startsWith(":GVN")) {
+  if (normalized.startsWith(":GVN")) {
     return String("1.0");
   }
   return "";
@@ -218,6 +221,9 @@ void handleClientInput() {
     }
     g_lastClientActivityMs = millis();
     char c = static_cast<char>(raw);
+    if (c == '\r' || c == '\n') {
+      continue;
+    }
     if (c == ':') {
       g_commandBuffer = ":";
       continue;
