@@ -17,6 +17,7 @@ namespace {
 WiFiServer g_server(config::STELLARIUM_TCP_PORT);
 WiFiClient g_client;
 bool g_accessPointActive = false;
+IPAddress g_accessPointIp;
 String g_commandBuffer;
 bool g_clientConnected = false;
 double g_pendingRaHours = 0.0;
@@ -286,6 +287,7 @@ void init() {
   WiFi.mode(WIFI_OFF);
   WiFi.softAPdisconnect(true);
   WiFi.disconnect(true, true);
+  g_accessPointIp = IPAddress();
 }
 
 bool enableAccessPoint() {
@@ -300,8 +302,10 @@ bool enableAccessPoint() {
                         false, 1);
   if (!ok) {
     WiFi.mode(WIFI_OFF);
+    g_accessPointIp = IPAddress();
     return false;
   }
+  g_accessPointIp = WiFi.softAPIP();
   g_server.begin();
   g_accessPointActive = true;
   return true;
@@ -317,6 +321,7 @@ void disableAccessPoint() {
   WiFi.disconnect(true, true);
   WiFi.mode(WIFI_OFF);
   g_accessPointActive = false;
+  g_accessPointIp = IPAddress();
 }
 
 bool accessPointActive() { return g_accessPointActive; }
@@ -324,6 +329,13 @@ bool accessPointActive() { return g_accessPointActive; }
 bool clientConnected() { return g_clientConnected; }
 
 const char* accessPointSsid() { return config::WIFI_AP_SSID; }
+
+String accessPointIp() {
+  if (!g_accessPointActive) {
+    return String();
+  }
+  return g_accessPointIp.toString();
+}
 
 void forceDisconnectClient() { clearClientState(true); }
 

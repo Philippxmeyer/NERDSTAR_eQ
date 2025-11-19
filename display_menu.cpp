@@ -1475,10 +1475,17 @@ void drawSetupMenu() {
     } else if (index == kSetupMenuWifiApIndex) {
       if (!stellarium_link::accessPointActive()) {
         display.print(": Off");
-      } else if (stellarium_link::clientConnected()) {
-        display.print(": Conn");
       } else {
-        display.print(": On");
+        display.print(": ");
+        String ip = stellarium_link::accessPointIp();
+        if (!ip.isEmpty()) {
+          display.print(ip);
+        } else {
+          display.print("On");
+        }
+        if (stellarium_link::clientConnected()) {
+          display.print(" *");
+        }
       }
     } else if (index == kSetupMenuStellariumIndex) {
       if (stellarium_link::clientConnected()) {
@@ -3318,7 +3325,13 @@ void handleSetupMenuInput(int delta) {
       bool enable = !stellarium_link::accessPointActive();
       if (enable) {
         if (stellarium_link::enableAccessPoint()) {
-          showInfo(String("AP: ") + stellarium_link::accessPointSsid(), 2500);
+          String message = String("AP: ") + stellarium_link::accessPointSsid();
+          String ip = stellarium_link::accessPointIp();
+          if (!ip.isEmpty()) {
+            message += " @ ";
+            message += ip;
+          }
+          showInfo(message, 3000);
         } else {
           showInfo("AP failed", 2000);
         }

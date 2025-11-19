@@ -202,12 +202,14 @@ NERDSTAR bringt jetzt ein eigenes Feld-WLAN und eine Stellarium-Schnittstelle mi
    je nachdem ob der AP läuft und bereits ein Client verbunden ist.
 2. **iPhone verbinden** – Netzwerknamen und Passwort sind fest im Build hinterlegt (`SSID = "NERDSTAR"`, `Passwort = "stardust42"`).
    Das iPhone kann sich direkt mit dem Controller koppeln, selbst wenn zu Hause kein WLAN verfügbar ist.
-3. **Stellarium konfigurieren** – In Stellarium Plus einen neuen Teleskop-Eintrag mit Protokoll „Meade LX200“ (oder
+3. **Host-IP merken** – Nach dem Einschalten blendet der AP-Eintrag im Setup-Menü automatisch die vergebene Host-IP ein
+   (standardmäßig `192.168.4.1`). Genau diese Adresse trägst du in Stellarium als „Host“ ein.
+4. **Stellarium konfigurieren** – In Stellarium Plus einen neuen Teleskop-Eintrag mit Protokoll „Meade LX200“ (oder
    „Stellarium Telescope“) anlegen und als Port `10001` verwenden. Der ESP32 beantwortet die LX200-Befehle direkt am AP und
    startet Goto/Stop-Kommandos so, als würden sie vom Joystick kommen.
-4. **Status überwachen** – Sobald Stellarium verbunden ist, blendet das OLED `Stellarium: On` sowie die aktuellen IST-RA/Dec
+5. **Status überwachen** – Sobald Stellarium verbunden ist, blendet das OLED `Stellarium: On` sowie die aktuellen IST-RA/Dec
    ein. Damit siehst du live, welche Koordinaten der Client zuletzt abgefragt hat.
-5. **Verbindung trennen** – `Setup → Stellarium` beendet per Encoder-Klick die aktuelle Client-Session (oder zeigt
+6. **Verbindung trennen** – `Setup → Stellarium` beendet per Encoder-Klick die aktuelle Client-Session (oder zeigt
    „No Stellarium client“, falls niemand verbunden ist).
 
 Der Access Point und Stellarium-Link schließen sich mit dem regulären WLAN (OTA/NTP) gegenseitig aus: Beim Aktivieren des AP
