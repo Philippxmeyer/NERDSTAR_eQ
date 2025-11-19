@@ -68,7 +68,7 @@ constexpr uint32_t COMM_RESPONSE_TIMEOUT_MS = 200;
 constexpr uint32_t USB_DEBUG_BAUD = 115200;
 
 // Motion configuration
-constexpr double FULLSTEPS_PER_REV = 200 * 50.0; // 2048
+constexpr double FULLSTEPS_PER_REV = 200 * 50.0; // 10.000
 constexpr double MICROSTEPS = 16.0;
 // Fallback manual slewing limit (RPM) used if no panning profile cap is set
 constexpr float MAX_RPM_MANUAL = 3.0f;
