@@ -1121,26 +1121,6 @@ bool altAzToRaDec(const DateTime& when,
   return true;
 }
 
-bool computeCurrentEquatorial(double& raHours, double& decDegrees) {
-  if (!orientationKnown) {
-    return false;
-  }
-  double physicalAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
-  double physicalAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
-  double skyAz = orientationModel.toSkyAz(physicalAz);
-  double skyAlt = orientationModel.toSkyAlt(physicalAlt);
-  DateTime now = currentDateTime();
-  return altAzToRaDec(now, skyAz, skyAlt, raHours, decDegrees);
-}
-
-void setStellariumStatus(bool connected, double raHours, double decDegrees) {
-  stellariumStatus.connected = connected;
-  if (connected) {
-    stellariumStatus.raHours = raHours;
-    stellariumStatus.decDegrees = decDegrees;
-  }
-}
-
 GotoProfileSteps toProfileSteps(const GotoProfile& profile, const AxisCalibration& cal) {
   GotoProfileSteps result{};
   result.maxSpeedAz = profile.maxSpeedDegPerSec * cal.stepsPerDegreeAz;
@@ -2917,8 +2897,6 @@ void abortGoto() {
   }
 }
 
-void abortGotoFromNetwork() { abortGoto(); }
-
 void updateTracking() {
   if (gotoRuntime.active || systemState.gotoActive) {
     motion::setTrackingRates(0.0, 0.0);
@@ -3044,10 +3022,6 @@ bool startGotoToCoordinates(double raHours, double decDegrees, const String& lab
     return computeManualTarget(raHours, decDegrees, start, secondsAhead, outRa, outDec, azDeg, altDeg, targetTime);
   };
   return planGotoTarget(label, -1, compute);
-}
-
-bool requestGotoFromNetwork(double raHours, double decDegrees, const String& label) {
-  return startGotoToCoordinates(raHours, decDegrees, label);
 }
 
 bool startParkPosition() {
@@ -3719,6 +3693,32 @@ void handlePolarAlignInput() {
 }
 
 }  // namespace
+
+bool computeCurrentEquatorial(double& raHours, double& decDegrees) {
+  if (!orientationKnown) {
+    return false;
+  }
+  double physicalAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
+  double physicalAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
+  double skyAz = orientationModel.toSkyAz(physicalAz);
+  double skyAlt = orientationModel.toSkyAlt(physicalAlt);
+  DateTime now = currentDateTime();
+  return altAzToRaDec(now, skyAz, skyAlt, raHours, decDegrees);
+}
+
+void setStellariumStatus(bool connected, double raHours, double decDegrees) {
+  stellariumStatus.connected = connected;
+  if (connected) {
+    stellariumStatus.raHours = raHours;
+    stellariumStatus.decDegrees = decDegrees;
+  }
+}
+
+bool requestGotoFromNetwork(double raHours, double decDegrees, const String& label) {
+  return startGotoToCoordinates(raHours, decDegrees, label);
+}
+
+void abortGotoFromNetwork() { abortGoto(); }
 
 void applyNetworkTime(time_t utcEpoch) {
   if (rtcAvailable) {
