@@ -37,6 +37,16 @@ void resetPendingTarget() {
   g_pendingDecDegrees = 0.0;
 }
 
+void persistObserverLocation(double latitudeDeg, double longitudeDeg,
+                             int32_t timezoneMinutes) {
+  storage::setObserverLocation(latitudeDeg, longitudeDeg, timezoneMinutes);
+}
+
+void persistNetworkTime(const DateTime& localTime) {
+  time_t utcEpoch = time_utils::toUtcEpoch(localTime);
+  display_menu::applyNetworkTime(utcEpoch);
+}
+
 void clearClientState(bool notify) {
   if (g_client) {
     g_client.stop();
@@ -370,7 +380,7 @@ String handleCommand(const String& command) {
     int32_t minutes = static_cast<int32_t>(round(hours * 60.0));
     minutes = std::clamp<int32_t>(minutes, -720, 840);
     const auto& config = storage::getConfig();
-    storage::setObserverLocation(config.observerLatitudeDeg, config.observerLongitudeDeg, minutes);
+    persistObserverLocation(config.observerLatitudeDeg, config.observerLongitudeDeg, minutes);
     return "1";
   }
   if (normalized.startsWith(":SL")) {
@@ -388,8 +398,7 @@ String handleCommand(const String& command) {
     }
     DateTime local = currentLocalTime();
     DateTime updated(local.year(), local.month(), local.day(), h, m, s);
-    time_t utcEpoch = time_utils::toUtcEpoch(updated);
-    display_menu::applyNetworkTime(utcEpoch);
+    persistNetworkTime(updated);
     return "1";
   }
   if (normalized.startsWith(":SC")) {
@@ -408,8 +417,7 @@ String handleCommand(const String& command) {
     int fullYear = 2000 + (year % 100);
     DateTime local = currentLocalTime();
     DateTime updated(fullYear, month, day, local.hour(), local.minute(), local.second());
-    time_t utcEpoch = time_utils::toUtcEpoch(updated);
-    display_menu::applyNetworkTime(utcEpoch);
+    persistNetworkTime(updated);
     return "1";
   }
   if (normalized.startsWith(":Sg")) {
@@ -419,7 +427,7 @@ String handleCommand(const String& command) {
       return "0";
     }
     const auto& config = storage::getConfig();
-    storage::setObserverLocation(config.observerLatitudeDeg, longitude, config.timezoneOffsetMinutes);
+    persistObserverLocation(config.observerLatitudeDeg, longitude, config.timezoneOffsetMinutes);
     return "1";
   }
   if (normalized.startsWith(":St")) {
@@ -429,7 +437,7 @@ String handleCommand(const String& command) {
       return "0";
     }
     const auto& config = storage::getConfig();
-    storage::setObserverLocation(latitude, config.observerLongitudeDeg, config.timezoneOffsetMinutes);
+    persistObserverLocation(latitude, config.observerLongitudeDeg, config.timezoneOffsetMinutes);
     return "1";
   }
   return "";
