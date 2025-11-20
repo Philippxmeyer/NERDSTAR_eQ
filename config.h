@@ -63,7 +63,7 @@ constexpr uint8_t COMM_RX_PIN = 16;
 #error "Unsupported device role"
 #endif
 
-constexpr uint32_t COMM_BAUD = 115200;
+constexpr uint32_t COMM_BAUD = 57600;
 constexpr uint32_t COMM_RESPONSE_TIMEOUT_MS = 200;
 constexpr uint32_t USB_DEBUG_BAUD = 115200;
 

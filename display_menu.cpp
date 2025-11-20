@@ -20,6 +20,7 @@
 #include <limits.h>
 
 #include "freertos/FreeRTOS.h"
+#include "freertos/portmacro.h"
 #include "freertos/semphr.h"
 
 #include "catalog.h"
@@ -484,35 +485,41 @@ struct OrientationModel {
   double altAccumulator_;
 };
 
-OrientationModel orientationModel;
-bool startupPromptActive = false;
-int startupPromptIndex = 0;
-constexpr const char* kStartupPromptItems[] = {
-    "Use saved lock", "New Polaris lock", "Discard lock"};
-constexpr size_t kStartupPromptCount = sizeof(kStartupPromptItems) / sizeof(kStartupPromptItems[0]);
+  OrientationModel orientationModel;
+  bool startupPromptActive = false;
+  int startupPromptIndex = 0;
+  constexpr const char* kStartupPromptItems[] = {
+      "Use saved lock", "New Polaris lock", "Discard lock"};
+  constexpr size_t kStartupPromptCount =
+      sizeof(kStartupPromptItems) / sizeof(kStartupPromptItems[0]);
 
-class MutexLock {
- public:
-  explicit MutexLock(SemaphoreHandle_t handle) : handle_(handle), locked_(false) {
-    if (!handle_) {
-      locked_ = true;
-      return;
+  class MutexLock {
+   public:
+    explicit MutexLock(SemaphoreHandle_t handle) : handle_(handle), locked_(false) {
+      if (!handle_) {
+        locked_ = true;
+        return;
+      }
+      BaseType_t schedulerState = xTaskGetSchedulerState();
+      TickType_t wait =
+          (schedulerState == taskSCHEDULER_NOT_STARTED || xPortInIsrContext())
+              ? 0
+              : portMAX_DELAY;
+      locked_ = xSemaphoreTakeRecursive(handle_, wait) == pdTRUE;
     }
-    locked_ = xSemaphoreTakeRecursive(handle_, portMAX_DELAY) == pdTRUE;
-  }
 
-  ~MutexLock() {
-    if (locked_ && handle_) {
-      xSemaphoreGiveRecursive(handle_);
+    ~MutexLock() {
+      if (locked_ && handle_) {
+        xSemaphoreGiveRecursive(handle_);
+      }
     }
-  }
 
-  bool locked() const { return locked_; }
+    bool locked() const { return locked_; }
 
- private:
-  SemaphoreHandle_t handle_;
-  bool locked_;
-};
+   private:
+    SemaphoreHandle_t handle_;
+    bool locked_;
+  };
 
 void applyDisplayContrast(uint8_t contrast) {
   if (displayContrastInitialized && activeDisplayContrast == contrast) {
