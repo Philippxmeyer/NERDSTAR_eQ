@@ -3,12 +3,15 @@
 #if defined(DEVICE_ROLE_HID)
 
 #include <WiFi.h>
+#include <algorithm>
 #include <math.h>
 #include <utility>
 
 #include "config.h"
 #include "display_menu.h"
 #include "motion.h"
+#include "storage.h"
+#include "time_utils.h"
 #include "wifi_ota.h"
 
 namespace stellarium_link {
@@ -91,6 +94,38 @@ String formatDec(double degrees) {
   return String(buffer);
 }
 
+String formatLatitude(double degrees) {
+  double clamped = std::clamp(degrees, -90.0, 90.0);
+  char sign = clamped >= 0.0 ? '+' : '-';
+  double absVal = fabs(clamped);
+  int d = static_cast<int>(absVal);
+  double minutesFloat = (absVal - d) * 60.0;
+  int m = static_cast<int>(minutesFloat + 0.5);
+  if (m >= 60) {
+    m = 0;
+    d = std::min(d + 1, 90);
+  }
+  char buffer[16];
+  snprintf(buffer, sizeof(buffer), "%c%02d*%02d", sign, d, m);
+  return String(buffer);
+}
+
+String formatLongitude(double degrees) {
+  double clamped = std::clamp(degrees, -180.0, 180.0);
+  char sign = clamped >= 0.0 ? '+' : '-';
+  double absVal = fabs(clamped);
+  int d = static_cast<int>(absVal);
+  double minutesFloat = (absVal - d) * 60.0;
+  int m = static_cast<int>(minutesFloat + 0.5);
+  if (m >= 60) {
+    m = 0;
+    d = std::min(d + 1, 180);
+  }
+  char buffer[16];
+  snprintf(buffer, sizeof(buffer), "%c%03d*%02d", sign, d, m);
+  return String(buffer);
+}
+
 bool parseRaCommand(const String& payload, double& hours) {
   int firstColon = payload.indexOf(':');
   int secondColon = payload.indexOf(':', firstColon + 1);
@@ -144,6 +179,93 @@ bool parseDecCommand(const String& payload, double& degrees) {
   double value = d + m / 60.0 + s / 3600.0;
   degrees = negative ? -value : value;
   return true;
+}
+
+bool parseLatitudeCommand(const String& payload, double& degrees) {
+  if (payload.length() < 4) {
+    return false;
+  }
+  char signChar = payload[0];
+  bool negative = false;
+  int start = 0;
+  if (signChar == '+' || signChar == '-') {
+    negative = signChar == '-';
+    start = 1;
+  }
+  int starIndex = payload.indexOf('*', start);
+  if (starIndex < 0) {
+    return false;
+  }
+  int colonIndex = payload.indexOf(':', starIndex + 1);
+  int d = payload.substring(start, starIndex).toInt();
+  int m = 0;
+  int s = 0;
+  if (colonIndex < 0) {
+    m = payload.substring(starIndex + 1).toInt();
+  } else {
+    m = payload.substring(starIndex + 1, colonIndex).toInt();
+    s = payload.substring(colonIndex + 1).toInt();
+  }
+  if (d < 0 || d > 90 || m < 0 || m > 59 || s < 0 || s > 59) {
+    return false;
+  }
+  double value = d + m / 60.0 + s / 3600.0;
+  degrees = negative ? -value : value;
+  return true;
+}
+
+bool parseLongitudeCommand(const String& payload, double& degrees) {
+  if (payload.length() < 5) {
+    return false;
+  }
+  char signChar = payload[0];
+  bool negative = false;
+  int start = 0;
+  if (signChar == '+' || signChar == '-') {
+    negative = signChar == '-';
+    start = 1;
+  }
+  int starIndex = payload.indexOf('*', start);
+  if (starIndex < 0) {
+    return false;
+  }
+  int colonIndex = payload.indexOf(':', starIndex + 1);
+  int d = payload.substring(start, starIndex).toInt();
+  int m = 0;
+  int s = 0;
+  if (colonIndex < 0) {
+    m = payload.substring(starIndex + 1).toInt();
+  } else {
+    m = payload.substring(starIndex + 1, colonIndex).toInt();
+    s = payload.substring(colonIndex + 1).toInt();
+  }
+  if (d < 0 || d > 180 || m < 0 || m > 59 || s < 0 || s > 59) {
+    return false;
+  }
+  double value = d + m / 60.0 + s / 3600.0;
+  degrees = negative ? -value : value;
+  return true;
+}
+
+DateTime currentLocalTime() {
+  const SystemConfig& config = storage::getConfig();
+  if (config.lastRtcEpoch != 0) {
+    return time_utils::applyTimezone(static_cast<time_t>(config.lastRtcEpoch));
+  }
+  return DateTime(2024, 1, 1, 0, 0, 0);
+}
+
+String formatTime(const DateTime& local) {
+  char buffer[16];
+  snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d", local.hour(), local.minute(), local.second());
+  return String(buffer);
+}
+
+String formatDate(const DateTime& local) {
+  char buffer[16];
+  int twoDigitYear = local.year() % 100;
+  snprintf(buffer, sizeof(buffer), "%02d/%02d/%02d", local.month(), local.day(), twoDigitYear);
+  return String(buffer);
 }
 
 String handleCommand(const String& command) {
@@ -213,6 +335,102 @@ String handleCommand(const String& command) {
   }
   if (normalized.startsWith(":GVN")) {
     return String("1.0");
+  }
+  if (normalized.startsWith(":GVD")) {
+    return String("2024-01-01");
+  }
+  if (normalized.startsWith(":GG")) {
+    int32_t tzMinutes = storage::getConfig().timezoneOffsetMinutes;
+    int tzHours = static_cast<int>(round(tzMinutes / 60.0));
+    char buffer[8];
+    snprintf(buffer, sizeof(buffer), "%+03d", tzHours);
+    return String(buffer);
+  }
+  if (normalized.startsWith(":GL")) {
+    return formatTime(currentLocalTime());
+  }
+  if (normalized.startsWith(":GC")) {
+    return formatDate(currentLocalTime());
+  }
+  if (normalized.startsWith(":Gg")) {
+    return formatLongitude(storage::getConfig().observerLongitudeDeg);
+  }
+  if (normalized.startsWith(":Gt")) {
+    return formatLatitude(storage::getConfig().observerLatitudeDeg);
+  }
+  if (normalized.startsWith(":D")) {
+    return String("0");
+  }
+  if (normalized.startsWith(":SG")) {
+    String payload = normalized.substring(3);
+    double hours = payload.toFloat();
+    if (!isfinite(hours) || fabs(hours) > 14.0) {
+      return "0";
+    }
+    int32_t minutes = static_cast<int32_t>(round(hours * 60.0));
+    minutes = std::clamp<int32_t>(minutes, -720, 840);
+    const auto& config = storage::getConfig();
+    storage::setObserverLocation(config.observerLatitudeDeg, config.observerLongitudeDeg, minutes);
+    return "1";
+  }
+  if (normalized.startsWith(":SL")) {
+    String payload = normalized.substring(3);
+    int firstColon = payload.indexOf(':');
+    int secondColon = payload.indexOf(':', firstColon + 1);
+    if (firstColon < 0 || secondColon < 0) {
+      return "0";
+    }
+    int h = payload.substring(0, firstColon).toInt();
+    int m = payload.substring(firstColon + 1, secondColon).toInt();
+    int s = payload.substring(secondColon + 1).toInt();
+    if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) {
+      return "0";
+    }
+    DateTime local = currentLocalTime();
+    DateTime updated(local.year(), local.month(), local.day(), h, m, s);
+    time_t utcEpoch = time_utils::toUtcEpoch(updated);
+    display_menu::applyNetworkTime(utcEpoch);
+    return "1";
+  }
+  if (normalized.startsWith(":SC")) {
+    String payload = normalized.substring(3);
+    int firstSlash = payload.indexOf('/');
+    int secondSlash = payload.indexOf('/', firstSlash + 1);
+    if (firstSlash < 0 || secondSlash < 0) {
+      return "0";
+    }
+    int month = payload.substring(0, firstSlash).toInt();
+    int day = payload.substring(firstSlash + 1, secondSlash).toInt();
+    int year = payload.substring(secondSlash + 1).toInt();
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+      return "0";
+    }
+    int fullYear = 2000 + (year % 100);
+    DateTime local = currentLocalTime();
+    DateTime updated(fullYear, month, day, local.hour(), local.minute(), local.second());
+    time_t utcEpoch = time_utils::toUtcEpoch(updated);
+    display_menu::applyNetworkTime(utcEpoch);
+    return "1";
+  }
+  if (normalized.startsWith(":Sg")) {
+    String payload = normalized.substring(3);
+    double longitude = 0.0;
+    if (!parseLongitudeCommand(payload, longitude)) {
+      return "0";
+    }
+    const auto& config = storage::getConfig();
+    storage::setObserverLocation(config.observerLatitudeDeg, longitude, config.timezoneOffsetMinutes);
+    return "1";
+  }
+  if (normalized.startsWith(":St")) {
+    String payload = normalized.substring(3);
+    double latitude = 0.0;
+    if (!parseLatitudeCommand(payload, latitude)) {
+      return "0";
+    }
+    const auto& config = storage::getConfig();
+    storage::setObserverLocation(latitude, config.observerLongitudeDeg, config.timezoneOffsetMinutes);
+    return "1";
   }
   return "";
 }
