@@ -452,6 +452,11 @@ void sendResponse(const String& response) {
 }
 
 void handleClientInput() {
+  constexpr size_t kMaxBytesPerUpdate = 128;
+  constexpr uint32_t kMaxHandleDurationMs = 10;
+  uint32_t startMs = millis();
+  size_t processed = 0;
+
   while (g_client && g_client.connected() && g_client.available() > 0) {
     int raw = g_client.read();
     if (raw < 0) {
@@ -488,6 +493,12 @@ void handleClientInput() {
       } else {
         g_commandBuffer += c;
       }
+    }
+
+    ++processed;
+    if (processed >= kMaxBytesPerUpdate ||
+        (millis() - startMs) >= kMaxHandleDurationMs) {
+      break;
     }
   }
 }
