@@ -153,8 +153,8 @@ void initLink() {
   nextRequestId = 1;
   commsLink.begin(uartLink, config::COMM_RX_PIN, config::COMM_TX_PIN,
                   config::COMM_BAUD);
-  commsLink.setHeartbeatInterval(50);
-  commsLink.setHeartbeatTimeout(500);
+  commsLink.setHeartbeatInterval(config::COMM_HEARTBEAT_INTERVAL_MS);
+  commsLink.setHeartbeatTimeout(config::COMM_HEARTBEAT_TIMEOUT_MS);
 
   Comms::Callbacks callbacks{};
   callbacks.onPacket = handlePacket;
