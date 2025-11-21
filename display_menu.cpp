@@ -62,6 +62,8 @@ using DisplayDriver = Adafruit_SSD1306;
 DisplayDriver display(config::OLED_WIDTH, config::OLED_HEIGHT, &Wire, -1);
 RTC_DS3231 rtc;
 bool rtcAvailable = false;
+time_t fallbackUtcEpoch = 0;
+uint32_t fallbackEpochMillis = 0;
 SemaphoreHandle_t i2cMutex = nullptr;
 StaticSemaphore_t i2cMutexBuffer;
 uint8_t activeDisplayContrast = 0x00;
@@ -854,6 +856,10 @@ DateTime currentDateTime() {
       time_t utcEpoch = rtc.now().unixtime();
       return time_utils::applyTimezone(utcEpoch);
     }
+  }
+  if (fallbackUtcEpoch != 0) {
+    time_t elapsedSeconds = static_cast<time_t>((millis() - fallbackEpochMillis) / 1000);
+    return time_utils::applyTimezone(fallbackUtcEpoch + elapsedSeconds);
   }
   if (config.lastRtcEpoch != 0) {
     return time_utils::applyTimezone(static_cast<time_t>(config.lastRtcEpoch));
@@ -3862,12 +3868,21 @@ bool requestGotoFromNetwork(double raHours, double decDegrees, const String& lab
 void abortGotoFromNetwork() { abortGoto(); }
 
 void applyNetworkTime(time_t utcEpoch) {
+  if (!rtcAvailable) {
+    MutexLock lock(i2cMutex);
+    if (lock.locked()) {
+      rtcAvailable = rtc.begin();
+    }
+  }
+
   if (rtcAvailable) {
     MutexLock lock(i2cMutex);
     if (lock.locked()) {
       rtc.adjust(DateTime(utcEpoch));
     }
   }
+  fallbackUtcEpoch = utcEpoch;
+  fallbackEpochMillis = millis();
   storage::setRtcEpoch(static_cast<uint32_t>(utcEpoch));
 }
 
@@ -3932,6 +3947,11 @@ void init() {
     MutexLock lock(i2cMutex);
     (void)lock;
     initPeripherals();
+  }
+
+  if (storage::getConfig().lastRtcEpoch != 0) {
+    fallbackUtcEpoch = static_cast<time_t>(storage::getConfig().lastRtcEpoch);
+    fallbackEpochMillis = millis();
   }
 
   if (!rtcAvailable) {

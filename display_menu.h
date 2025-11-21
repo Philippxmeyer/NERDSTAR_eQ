@@ -26,6 +26,7 @@ void startPolarAlignment();
 void update();
 void setSdAvailable(bool available);
 void stopTracking();
+DateTime currentDateTime();
 void applyNetworkTime(time_t utcEpoch);
 bool computeCurrentEquatorial(double& raHours, double& decDegrees);
 bool requestGotoFromNetwork(double raHours, double decDegrees, const String& label);

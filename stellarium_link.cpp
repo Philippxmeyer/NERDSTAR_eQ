@@ -257,13 +257,7 @@ bool parseLongitudeCommand(const String& payload, double& degrees) {
   return true;
 }
 
-DateTime currentLocalTime() {
-  const SystemConfig& config = storage::getConfig();
-  if (config.lastRtcEpoch != 0) {
-    return time_utils::applyTimezone(static_cast<time_t>(config.lastRtcEpoch));
-  }
-  return DateTime(2024, 1, 1, 0, 0, 0);
-}
+DateTime currentLocalTime() { return display_menu::currentDateTime(); }
 
 String formatTime(const DateTime& local) {
   char buffer[16];
