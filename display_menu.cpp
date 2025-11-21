@@ -848,7 +848,7 @@ double applyAtmosphericRefraction(double geometricAltitudeDeg) {
   return geometricAltitudeDeg + refractionArcMinutes / 60.0;
 }
 
-DateTime currentDateTime() {
+DateTime computeCurrentDateTime() {
   const SystemConfig& config = storage::getConfig();
   if (rtcAvailable) {
     MutexLock lock(i2cMutex);
@@ -3840,6 +3840,8 @@ void handlePolarAlignInput() {
 }
 
 }  // namespace
+
+DateTime currentDateTime() { return computeCurrentDateTime(); }
 
 bool computeCurrentEquatorial(double& raHours, double& decDegrees) {
   if (!orientationKnown) {
