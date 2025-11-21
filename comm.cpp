@@ -8,6 +8,7 @@
 
 #if defined(DEVICE_ROLE_HID)
 #include "freertos/FreeRTOS.h"
+#include "freertos/portmacro.h"
 #include "freertos/semphr.h"
 #endif
 
@@ -152,8 +153,8 @@ void initLink() {
   nextRequestId = 1;
   commsLink.begin(uartLink, config::COMM_RX_PIN, config::COMM_TX_PIN,
                   config::COMM_BAUD);
-  commsLink.setHeartbeatInterval(50);
-  commsLink.setHeartbeatTimeout(500);
+  commsLink.setHeartbeatInterval(config::COMM_HEARTBEAT_INTERVAL_MS);
+  commsLink.setHeartbeatTimeout(config::COMM_HEARTBEAT_TIMEOUT_MS);
 
   Comms::Callbacks callbacks{};
   callbacks.onPacket = handlePacket;
@@ -195,12 +196,21 @@ bool waitForReady(uint32_t timeoutMs) {
 
 bool call(const char* command, std::initializer_list<String> params,
           std::vector<String>* payload, String* error, uint32_t timeoutMs) {
+  if (rpcMutex == nullptr) {
+    rpcMutex = xSemaphoreCreateMutex();
+  }
   class MutexLock {
    public:
     explicit MutexLock(SemaphoreHandle_t handle) : handle_(handle), locked_(false) {
-      if (handle_) {
-        locked_ = xSemaphoreTake(handle_, portMAX_DELAY) == pdTRUE;
+      if (!handle_) {
+        return;
       }
+      BaseType_t schedulerState = xTaskGetSchedulerState();
+      TickType_t wait =
+          (schedulerState == taskSCHEDULER_NOT_STARTED || xPortInIsrContext())
+              ? 0
+              : portMAX_DELAY;
+      locked_ = xSemaphoreTake(handle_, wait) == pdTRUE;
     }
     ~MutexLock() {
       if (locked_ && handle_) {
