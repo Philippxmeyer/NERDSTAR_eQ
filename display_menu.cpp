@@ -523,6 +523,30 @@ struct OrientationModel {
     bool locked_;
   };
 
+bool initializeRtc() {
+  MutexLock lock(i2cMutex);
+  if (!lock.locked()) {
+    return false;
+  }
+
+  // Re-initialize the bus in case a previous peripheral left it in a bad
+  // state. Explicitly set the clock to keep the RTC happy when multiple
+  // devices share the line.
+  Wire.begin(config::SDA_PIN, config::SCL_PIN);
+  Wire.setClock(100000);
+
+  // Some DS3231 breakout boards buffer I2C; probe the address first so we can
+  // retry without giving up on the RTC entirely.
+  Wire.beginTransmission(0x68);
+  bool rtcResponsive = Wire.endTransmission() == 0;
+
+  if (!rtcResponsive) {
+    return false;
+  }
+
+  return rtc.begin(&Wire);
+}
+
 void applyDisplayContrast(uint8_t contrast) {
   if (displayContrastInitialized && activeDisplayContrast == contrast) {
     return;
@@ -3862,10 +3886,7 @@ void abortGotoFromNetwork() { abortGoto(); }
 
 void applyNetworkTime(time_t utcEpoch) {
   if (!rtcAvailable) {
-    MutexLock lock(i2cMutex);
-    if (lock.locked()) {
-      rtcAvailable = rtc.begin();
-    }
+    rtcAvailable = initializeRtc();
   }
 
   if (rtcAvailable) {
@@ -3929,11 +3950,7 @@ void init() {
     display.display();
     applyDisplayContrast(storage::getConfig().displayContrast);
 
-    rtcAvailable = rtc.begin();
-    if (!rtcAvailable) {
-      delay(25);
-      rtcAvailable = rtc.begin();
-    }
+    rtcAvailable = initializeRtc();
   };
 
   {
