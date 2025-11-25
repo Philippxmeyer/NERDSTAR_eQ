@@ -273,13 +273,42 @@ String formatDate(const DateTime& local) {
 }
 
 String handleCommand(const String& command) {
-  String normalized = command;
-  normalized.trim();
-  normalized.toUpperCase();
-  if (normalized.length() < 2 || normalized[0] != ':') {
+  String trimmed = command;
+  trimmed.trim();
+  if (trimmed.length() < 2 || trimmed[0] != ':') {
     return "";
   }
-  if (normalized.startsWith(":GR")) {
+  String upper = trimmed;
+  upper.toUpperCase();
+
+  if (trimmed.startsWith(":St")) {
+    String payload = trimmed.substring(3);
+    double latitude = 0.0;
+    if (!parseLatitudeCommand(payload, latitude)) {
+      return "0";
+    }
+    const auto& config = storage::getConfig();
+    persistObserverLocation(latitude, config.observerLongitudeDeg, config.timezoneOffsetMinutes);
+    return "1";
+  }
+  if (trimmed.startsWith(":Sg")) {
+    String payload = trimmed.substring(3);
+    double longitude = 0.0;
+    if (!parseLongitudeCommand(payload, longitude)) {
+      return "0";
+    }
+    const auto& config = storage::getConfig();
+    persistObserverLocation(config.observerLatitudeDeg, longitude, config.timezoneOffsetMinutes);
+    return "1";
+  }
+  if (trimmed.startsWith(":Gt")) {
+    return formatLatitude(storage::getConfig().observerLatitudeDeg);
+  }
+  if (trimmed.startsWith(":Gg")) {
+    return formatLongitude(storage::getConfig().observerLongitudeDeg);
+  }
+
+  if (upper.startsWith(":GR")) {
     double ra = 0.0;
     double dec = 0.0;
     if (!display_menu::computeCurrentEquatorial(ra, dec)) {
@@ -287,7 +316,7 @@ String handleCommand(const String& command) {
     }
     return formatRa(ra);
   }
-  if (normalized.startsWith(":GD")) {
+  if (upper.startsWith(":GD")) {
     double ra = 0.0;
     double dec = 0.0;
     if (!display_menu::computeCurrentEquatorial(ra, dec)) {
@@ -295,8 +324,8 @@ String handleCommand(const String& command) {
     }
     return formatDec(dec);
   }
-  if (normalized.startsWith(":SR")) {
-    String payload = normalized.substring(3);
+  if (upper.startsWith(":SR")) {
+    String payload = upper.substring(3);
     double ra = 0.0;
     if (!parseRaCommand(payload, ra)) {
       g_pendingRaValid = false;
@@ -306,8 +335,8 @@ String handleCommand(const String& command) {
     g_pendingRaValid = true;
     return "1";
   }
-  if (normalized.startsWith(":SD")) {
-    String payload = normalized.substring(3);
+  if (upper.startsWith(":SD")) {
+    String payload = upper.substring(3);
     double dec = 0.0;
     if (!parseDecCommand(payload, dec)) {
       g_pendingDecValid = false;
@@ -317,7 +346,7 @@ String handleCommand(const String& command) {
     g_pendingDecValid = true;
     return "1";
   }
-  if (normalized.startsWith(":MS")) {
+  if (upper.startsWith(":MS")) {
     if (!g_pendingRaValid || !g_pendingDecValid) {
       return "1";
     }
@@ -328,45 +357,45 @@ String handleCommand(const String& command) {
     }
     return ok ? "0" : "1";
   }
-  if (normalized.startsWith(":Q")) {
+  if (upper.startsWith(":Q")) {
     display_menu::abortGotoFromNetwork();
     display_menu::stopTracking();
     motion::stopAll();
     return "";
   }
-  if (normalized.startsWith(":GVP")) {
+  if (upper.startsWith(":GVP")) {
     return String("NERDSTAR");
   }
-  if (normalized.startsWith(":GVN")) {
+  if (upper.startsWith(":GVN")) {
     return String("1.0");
   }
-  if (normalized.startsWith(":GVD")) {
+  if (upper.startsWith(":GVD")) {
     return String("2024-01-01");
   }
-  if (normalized.startsWith(":GG")) {
+  if (upper.startsWith(":GVT")) {
+    return formatTime(currentLocalTime());
+  }
+  if (upper.startsWith(":GG")) {
     int32_t tzMinutes = storage::getConfig().timezoneOffsetMinutes;
     int tzHours = static_cast<int>(round(tzMinutes / 60.0));
     char buffer[8];
     snprintf(buffer, sizeof(buffer), "%+03d", tzHours);
     return String(buffer);
   }
-  if (normalized.startsWith(":GL")) {
+  if (upper.startsWith(":GL")) {
     return formatTime(currentLocalTime());
   }
-  if (normalized.startsWith(":GC")) {
+  if (upper.startsWith(":GC")) {
     return formatDate(currentLocalTime());
   }
-  if (normalized.startsWith(":Gg")) {
-    return formatLongitude(storage::getConfig().observerLongitudeDeg);
-  }
-  if (normalized.startsWith(":Gt")) {
-    return formatLatitude(storage::getConfig().observerLatitudeDeg);
-  }
-  if (normalized.startsWith(":D")) {
+  if (upper.startsWith(":GW")) {
     return String("0");
   }
-  if (normalized.startsWith(":SG")) {
-    String payload = normalized.substring(3);
+  if (upper.startsWith(":D")) {
+    return String("0");
+  }
+  if (upper.startsWith(":SG")) {
+    String payload = upper.substring(3);
     double hours = payload.toFloat();
     if (!isfinite(hours) || fabs(hours) > 14.0) {
       return "0";
@@ -377,8 +406,8 @@ String handleCommand(const String& command) {
     persistObserverLocation(config.observerLatitudeDeg, config.observerLongitudeDeg, minutes);
     return "1";
   }
-  if (normalized.startsWith(":SL")) {
-    String payload = normalized.substring(3);
+  if (upper.startsWith(":SL")) {
+    String payload = upper.substring(3);
     int firstColon = payload.indexOf(':');
     int secondColon = payload.indexOf(':', firstColon + 1);
     if (firstColon < 0 || secondColon < 0) {
@@ -395,8 +424,8 @@ String handleCommand(const String& command) {
     persistNetworkTime(updated);
     return "1";
   }
-  if (normalized.startsWith(":SC")) {
-    String payload = normalized.substring(3);
+  if (upper.startsWith(":SC")) {
+    String payload = upper.substring(3);
     int firstSlash = payload.indexOf('/');
     int secondSlash = payload.indexOf('/', firstSlash + 1);
     if (firstSlash < 0 || secondSlash < 0) {
@@ -412,26 +441,6 @@ String handleCommand(const String& command) {
     DateTime local = currentLocalTime();
     DateTime updated(fullYear, month, day, local.hour(), local.minute(), local.second());
     persistNetworkTime(updated);
-    return "1";
-  }
-  if (normalized.startsWith(":Sg")) {
-    String payload = normalized.substring(3);
-    double longitude = 0.0;
-    if (!parseLongitudeCommand(payload, longitude)) {
-      return "0";
-    }
-    const auto& config = storage::getConfig();
-    persistObserverLocation(config.observerLatitudeDeg, longitude, config.timezoneOffsetMinutes);
-    return "1";
-  }
-  if (normalized.startsWith(":St")) {
-    String payload = normalized.substring(3);
-    double latitude = 0.0;
-    if (!parseLatitudeCommand(payload, latitude)) {
-      return "0";
-    }
-    const auto& config = storage::getConfig();
-    persistObserverLocation(latitude, config.observerLongitudeDeg, config.timezoneOffsetMinutes);
     return "1";
   }
   return "";
