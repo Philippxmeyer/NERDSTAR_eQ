@@ -26,37 +26,124 @@ constexpr uint8_t kMaxCallRetries = 3;
 #endif
 
 constexpr uint8_t kAsciiChannel = 1;
-constexpr size_t kMaxQueuedLines = 16;
+constexpr size_t kMaxQueuedMessages = 16;
 
-std::deque<String> lineQueue;
+enum class MessageType : uint8_t { kReady, kRequest, kResponse, kUnknown };
+
+struct WireMessage {
+  MessageType type = MessageType::kUnknown;
+  uint16_t id = 0;
+  String command;
+  String status;
+  std::vector<String> params;
+};
+
+std::deque<WireMessage> messageQueue;
 
 void pumpLink() { commsLink.update(); }
 
 void dropPendingInput() {
-  lineQueue.clear();
+  messageQueue.clear();
   commsLink.clearError();
 }
 
-bool readLine(String& line, uint32_t timeoutMs) {
-  uint32_t start = millis();
-  while (true) {
-    pumpLink();
-    if (!lineQueue.empty()) {
-      line = lineQueue.front();
-      lineQueue.pop_front();
-      return true;
+MessageType parseType(const String& token) {
+  if (token == "READY") {
+    return MessageType::kReady;
+  }
+  if (token == "REQ") {
+    return MessageType::kRequest;
+  }
+  if (token == "RESP") {
+    return MessageType::kResponse;
+  }
+  return MessageType::kUnknown;
+}
+
+WireMessage parseLine(const String& line) {
+  WireMessage message;
+  std::vector<String> fields;
+  int start = 0;
+  while (start <= line.length()) {
+    int idx = line.indexOf('|', start);
+    if (idx < 0) {
+      fields.push_back(line.substring(start));
+      break;
     }
-    if (timeoutMs != 0) {
-      uint32_t now = millis();
-      if ((now - start) >= timeoutMs) {
-        return false;
+    fields.push_back(line.substring(start, idx));
+    start = idx + 1;
+  }
+
+  if (fields.empty()) {
+    return message;
+  }
+
+  message.type = parseType(fields[0]);
+  switch (message.type) {
+    case MessageType::kReady:
+      break;
+    case MessageType::kRequest:
+      if (fields.size() >= 3) {
+        message.id = static_cast<uint16_t>(fields[1].toInt());
+        message.command = fields[2];
+        message.params.assign(fields.begin() + 3, fields.end());
       }
+      break;
+    case MessageType::kResponse:
+      if (fields.size() >= 3) {
+        message.id = static_cast<uint16_t>(fields[1].toInt());
+        message.status = fields[2];
+        message.params.assign(fields.begin() + 3, fields.end());
+      }
+      break;
+    case MessageType::kUnknown:
+    default:
+      break;
+  }
+
+  if (message.type == MessageType::kRequest &&
+      (message.command.isEmpty() || fields.size() < 3)) {
+    message.type = MessageType::kUnknown;
+  }
+  if (message.type == MessageType::kResponse &&
+      (message.status.isEmpty() || fields.size() < 3)) {
+    message.type = MessageType::kUnknown;
+  }
+
+  return message;
+}
+
+String buildLine(const WireMessage& message) {
+  switch (message.type) {
+    case MessageType::kReady:
+      return String("READY");
+    case MessageType::kRequest: {
+      String line = "REQ|" + String(message.id) + "|" + message.command;
+      for (const auto& param : message.params) {
+        line += "|";
+        line += param;
+      }
+      return line;
     }
-    delay(1);
+    case MessageType::kResponse: {
+      String line = "RESP|" + String(message.id) + "|" + message.status;
+      for (const auto& param : message.params) {
+        line += "|";
+        line += param;
+      }
+      return line;
+    }
+    case MessageType::kUnknown:
+    default:
+      return String();
   }
 }
 
-bool sendLine(const String& line) {
+bool sendMessage(const WireMessage& message) {
+  String line = buildLine(message);
+  if (line.isEmpty()) {
+    return false;
+  }
   const size_t length = static_cast<size_t>(line.length());
   if (length > Comms::kMaxPayloadSize) {
     if (Serial) {
@@ -74,6 +161,52 @@ bool sendLine(const String& line) {
   return true;
 }
 
+bool readMessage(WireMessage& message, uint32_t timeoutMs) {
+  uint32_t start = millis();
+  while (true) {
+    pumpLink();
+    if (!messageQueue.empty()) {
+      message = messageQueue.front();
+      messageQueue.pop_front();
+      return true;
+    }
+    if (timeoutMs != 0) {
+      uint32_t now = millis();
+      if ((now - start) >= timeoutMs) {
+        return false;
+      }
+    }
+    delay(1);
+  }
+}
+
+void enqueueMessage(WireMessage&& message) {
+  if (message.type == MessageType::kUnknown) {
+    return;
+  }
+  if (message.type == MessageType::kReady) {
+    for (const auto& pending : messageQueue) {
+      if (pending.type == MessageType::kReady) {
+        return;  // Already queued a READY notification.
+      }
+    }
+  }
+
+  if (messageQueue.size() >= kMaxQueuedMessages) {
+    auto readyIt = std::find_if(messageQueue.begin(), messageQueue.end(),
+                                [](const WireMessage& msg) {
+                                  return msg.type == MessageType::kReady;
+                                });
+    if (readyIt != messageQueue.end()) {
+      messageQueue.erase(readyIt);
+    } else {
+      messageQueue.pop_front();
+    }
+  }
+
+  messageQueue.push_back(std::move(message));
+}
+
 void handlePacket(const Comms::Packet& packet, void*) {
   if (packet.channel != kAsciiChannel) {
     return;
@@ -83,24 +216,7 @@ void handlePacket(const Comms::Packet& packet, void*) {
   for (uint8_t i = 0; i < packet.size; ++i) {
     line += static_cast<char>(packet.data[i]);
   }
-  if (line.equals("READY")) {
-    for (const auto& existing : lineQueue) {
-      if (existing.equals("READY")) {
-        return;  // Already queued a READY notification.
-      }
-    }
-  }
-  if (lineQueue.size() >= kMaxQueuedLines) {
-    auto readyIt = std::find_if(lineQueue.begin(), lineQueue.end(), [](const String& value) {
-      return value.equals("READY");
-    });
-    if (readyIt != lineQueue.end()) {
-      lineQueue.erase(readyIt);
-    } else {
-      lineQueue.pop_front();
-    }
-  }
-  lineQueue.push_back(std::move(line));
+  enqueueMessage(parseLine(line));
 }
 
 void handleHeartbeat(void*) {
@@ -130,26 +246,12 @@ void handleError(Comms::Error error, int8_t rawStatus, void*) {
   }
 }
 
-void splitFields(const String& line, std::vector<String>& fields) {
-  fields.clear();
-  int start = 0;
-  while (start <= line.length()) {
-    int idx = line.indexOf('|', start);
-    if (idx < 0) {
-      fields.push_back(line.substring(start));
-      break;
-    }
-    fields.push_back(line.substring(start, idx));
-    start = idx + 1;
-  }
-}
-
 }  // namespace
 
 namespace comm {
 
 void initLink() {
-  lineQueue.clear();
+  messageQueue.clear();
   nextRequestId = 1;
   commsLink.begin(uartLink, config::COMM_RX_PIN, config::COMM_TX_PIN,
                   config::COMM_BAUD);
@@ -184,11 +286,11 @@ bool waitForReady(uint32_t timeoutMs) {
       }
       remaining = timeoutMs - elapsed;
     }
-    String line;
-    if (!readLine(line, remaining)) {
+    WireMessage message;
+    if (!readMessage(message, remaining)) {
       return false;
     }
-    if (line == "READY") {
+    if (message.type == MessageType::kReady) {
       return true;
     }
   }
@@ -236,16 +338,13 @@ bool call(const char* command, std::initializer_list<String> params,
       payload->clear();
     }
     uint16_t id = nextRequestId++;
-    String line = "REQ|" + String(id) + "|" + String(command);
-    for (const auto& param : params) {
-      line += "|";
-      line += param;
-    }
+    WireMessage request{MessageType::kRequest, id, String(command), String(),
+                       std::vector<String>(params)};
     if (attempt > 0 && Serial) {
       Serial.printf("[COMM] Retrying %s (attempt %u, last error: %s)\n", command,
                     attempt + 1, lastError.c_str());
     }
-    if (!sendLine(line)) {
+    if (!sendMessage(request)) {
       lastError = "Send";
       break;
     }
@@ -261,46 +360,26 @@ bool call(const char* command, std::initializer_list<String> params,
         }
         remaining = timeoutMs - elapsed;
       }
-      String response;
-      if (!readLine(response, remaining)) {
+      WireMessage response;
+      if (!readMessage(response, remaining)) {
         lastError = "Timeout";
         break;
       }
-      if (response == "READY") {
+      if (response.type == MessageType::kReady) {
         continue;
       }
-      std::vector<String> fields;
-      splitFields(response, fields);
-      if (fields.empty()) {
+      if (response.type != MessageType::kResponse || response.id != id) {
         lastError = "Protocol";
         continue;
       }
-      if (fields[0] != "RESP") {
-        lastError = "Protocol";
-        continue;
-      }
-      if (fields.size() < 3) {
-        lastError = "Protocol";
-        continue;
-      }
-      uint16_t respId = static_cast<uint16_t>(fields[1].toInt());
-      if (respId != id) {
-        lastError = "Protocol";
-        continue;
-      }
-      const String& status = fields[2];
-      if (status == "OK") {
+      if (response.status == "OK") {
         if (payload) {
-          payload->assign(fields.begin() + 3, fields.end());
+          payload->assign(response.params.begin(), response.params.end());
         }
         debug::recordCommSuccess(command);
         return true;
       }
-      if (fields.size() > 3) {
-        lastError = fields[3];
-      } else {
-        lastError = "Error";
-      }
+      lastError = response.params.empty() ? String("Error") : response.params[0];
       break;
     }
 
@@ -329,47 +408,47 @@ bool isLinkActive() {
 
 #elif defined(DEVICE_ROLE_MAIN)
 
-void announceReady() { sendLine("READY"); }
+void announceReady() {
+  WireMessage message;
+  message.type = MessageType::kReady;
+  sendMessage(message);
+}
 
 bool readRequest(Request& request, uint32_t timeoutMs) {
   while (true) {
-    String line;
-    if (!readLine(line, timeoutMs)) {
+    WireMessage message;
+    if (!readMessage(message, timeoutMs)) {
       return false;
     }
-    if (line == "READY") {
+    if (message.type == MessageType::kReady) {
       continue;
     }
-    std::vector<String> fields;
-    splitFields(line, fields);
-    if (fields.empty()) {
+    if (message.type != MessageType::kRequest || message.command.isEmpty()) {
       continue;
     }
-    if (fields[0] != "REQ") {
-      continue;
-    }
-    if (fields.size() < 3) {
-      continue;
-    }
-    request.id = static_cast<uint16_t>(fields[1].toInt());
-    request.command = fields[2];
-    request.params.assign(fields.begin() + 3, fields.end());
+    request.id = message.id;
+    request.command = message.command;
+    request.params = std::move(message.params);
     return true;
   }
 }
 
 void sendOk(uint16_t id, std::initializer_list<String> payload) {
-  String line = "RESP|" + String(id) + "|OK";
-  for (const auto& value : payload) {
-    line += "|";
-    line += value;
-  }
-  sendLine(line);
+  WireMessage message;
+  message.type = MessageType::kResponse;
+  message.id = id;
+  message.status = "OK";
+  message.params.assign(payload.begin(), payload.end());
+  sendMessage(message);
 }
 
 void sendError(uint16_t id, const String& message) {
-  String line = "RESP|" + String(id) + "|ERR|" + message;
-  sendLine(line);
+  WireMessage response;
+  response.type = MessageType::kResponse;
+  response.id = id;
+  response.status = "ERR";
+  response.params.push_back(message);
+  sendMessage(response);
 }
 
 #endif
