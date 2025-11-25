@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "config.h"
+#include "freertos/portmacro.h"
 
 namespace {
 
@@ -21,8 +22,15 @@ constexpr long kEncoderMinValue = -100000;
 constexpr long kEncoderMaxValue = 100000;
 constexpr uint32_t kAccelerationResetMs = 400;
 constexpr int kMaxAcceleratedStep = 6;
+constexpr uint32_t kRotaryButtonDebounceMs = 35;
 
 AiEsp32RotaryEncoder rotaryEncoder(config::ROT_A, config::ROT_B, config::ROT_BTN, -1);
+
+portMUX_TYPE rotaryButtonMux = portMUX_INITIALIZER_UNLOCKED;
+volatile bool rotaryButtonEdge = false;
+bool rotaryButtonPressed = false;
+bool rotaryButtonClicked = false;
+uint32_t lastRotaryButtonChangeMs = 0;
 
 template <typename...>
 using void_t = void;
@@ -150,7 +158,40 @@ float encoderAccelerationRemainder = 0.0f;
 
 void IRAM_ATTR handleEncoderISR() { rotaryEncoder.readEncoder_ISR(); }
 
-void IRAM_ATTR handleEncoderButtonISR() { rotaryEncoder.readButton_ISR(); }
+void IRAM_ATTR handleEncoderButtonISR() {
+  portENTER_CRITICAL_ISR(&rotaryButtonMux);
+  rotaryButtonEdge = true;
+  portEXIT_CRITICAL_ISR(&rotaryButtonMux);
+}
+
+bool consumeRotaryButtonEdge() {
+  portENTER_CRITICAL(&rotaryButtonMux);
+  bool edge = rotaryButtonEdge;
+  rotaryButtonEdge = false;
+  portEXIT_CRITICAL(&rotaryButtonMux);
+  return edge;
+}
+
+void updateRotaryButton() {
+  uint32_t now = millis();
+  bool edge = consumeRotaryButtonEdge();
+
+  if (!edge && (now - lastRotaryButtonChangeMs) < kRotaryButtonDebounceMs) {
+    return;
+  }
+  lastRotaryButtonChangeMs = now;
+
+  bool pressed = (digitalRead(config::ROT_BTN) == LOW);
+  if (pressed != rotaryButtonPressed) {
+    rotaryButtonPressed = pressed;
+    if (!pressed) {
+      rotaryButtonClicked = true;
+    }
+  } else if (edge) {
+    // Bounce-only edge; ignore but keep debounce window anchored.
+    lastRotaryButtonChangeMs = now;
+  }
+}
 
 void updateJoystickButton() {
   bool pressed = (digitalRead(config::JOY_BTN) == LOW);
@@ -223,6 +264,9 @@ void init() {
   lastEncoderEventMs = millis();
   encoderAccelerationRemainder = 0.0f;
 
+  rotaryButtonPressed = (digitalRead(config::ROT_BTN) == LOW);
+  lastRotaryButtonChangeMs = millis();
+
   analogReadResolution(12);
 }
 
@@ -242,6 +286,7 @@ JoystickCalibration calibrateJoystick() {
 
 void update() {
   ServiceEncoder(rotaryEncoder);
+  updateRotaryButton();
   updateJoystickButton();
 }
 
@@ -292,7 +337,11 @@ int consumeEncoderDelta() {
   return accelerated;
 }
 
-bool consumeEncoderClick() { return rotaryEncoder.isEncoderButtonClicked(); }
+bool consumeEncoderClick() {
+  bool clicked = rotaryButtonClicked;
+  rotaryButtonClicked = false;
+  return clicked;
+}
 
 int getJoystickCenterX() { return currentCalibration.centerX; }
 
