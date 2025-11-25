@@ -1228,6 +1228,16 @@ void drawStatus(bool diagnostics) {
     display.print("Alt: ");
     display.print(altBuffer);
   }
+  if (rtcAvailable) {
+    DateTime now = time_utils::applyTimezone(rtc.now().unixtime());
+    char timeBuffer[16];
+    snprintf(timeBuffer, sizeof(timeBuffer), "%02d:%02d:%02d", now.hour(), now.minute(), now.second());
+    if (int y = nextY(); y >= 0) {
+      display.setCursor(0, y);
+      display.print("Time: ");
+      display.print(timeBuffer);
+    }
+  }
   if (int y = nextY(); y >= 0) {
     display.setCursor(0, y);
     display.print("Align: ");
@@ -1271,19 +1281,10 @@ void drawStatus(bool diagnostics) {
     }
     if (int y = nextY(); y >= 0) {
       display.setCursor(0, y);
-      display.printf("Joy:%+0.2f,%+0.2f Btn:%s", systemState.joystickX, systemState.joystickY,
-                     systemState.joystickButtonPressed ? "On" : "Off");
-    }
-    if (int y = nextY(); y >= 0) {
-      display.setCursor(0, y);
       display.print("Link: ");
       display.print(systemState.mountLinkReady ? "Ready" : "Offline");
       display.print(" Cmd: ");
       display.print(systemState.manualCommandOk ? "OK" : "Err");
-    }
-    if (int y = nextY(); y >= 0) {
-      display.setCursor(0, y);
-      display.print("Joy=Close Enc=Menu");
     }
   } else {
     if (!selectedObjectName.isEmpty()) {
@@ -1306,16 +1307,6 @@ void drawStatus(bool diagnostics) {
         display.print(gotoTargetName);
       }
     }
-  }
-  if (uiState == UiState::StatusScreen) {
-    display.setCursor(0, 50);
-    display.printf("Joy:%+0.2f,%+0.2f", systemState.joystickX, systemState.joystickY);
-    display.setCursor(90, 50);
-    display.print(systemState.joystickButtonPressed ? "BTN" : "---");
-    display.setCursor(112, 50);
-    display.print(systemState.mountLinkReady ? "L" : "!");
-    display.setCursor(118, 50);
-    display.print(systemState.manualCommandOk ? "C" : "!");
   }
 }
 
