@@ -173,12 +173,10 @@ bool consumeRotaryButtonEdge() {
 }
 
 void updateRotaryButton() {
-  if (!consumeRotaryButtonEdge()) {
-    return;
-  }
-
   uint32_t now = millis();
-  if ((now - lastRotaryButtonChangeMs) < kRotaryButtonDebounceMs) {
+  bool edge = consumeRotaryButtonEdge();
+
+  if (!edge && (now - lastRotaryButtonChangeMs) < kRotaryButtonDebounceMs) {
     return;
   }
   lastRotaryButtonChangeMs = now;
@@ -189,6 +187,9 @@ void updateRotaryButton() {
     if (!pressed) {
       rotaryButtonClicked = true;
     }
+  } else if (edge) {
+    // Bounce-only edge; ignore but keep debounce window anchored.
+    lastRotaryButtonChangeMs = now;
   }
 }
 
