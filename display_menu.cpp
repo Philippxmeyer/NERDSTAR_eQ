@@ -523,22 +523,27 @@ struct OrientationModel {
     bool locked_;
   };
 
+bool probeRtc() {
+  Wire.beginTransmission(0x68);
+  return Wire.endTransmission() == 0;
+}
+
 bool initializeRtc() {
   MutexLock lock(i2cMutex);
   if (!lock.locked()) {
     return false;
   }
 
-  // Re-initialize the bus in case a previous peripheral left it in a bad
-  // state. Explicitly set the clock to keep the RTC happy when multiple
-  // devices share the line.
-  Wire.begin(config::SDA_PIN, config::SCL_PIN);
-  Wire.setClock(100000);
-
-  // Some DS3231 breakout boards buffer I2C; probe the address first so we can
-  // retry without giving up on the RTC entirely.
-  Wire.beginTransmission(0x68);
-  bool rtcResponsive = Wire.endTransmission() == 0;
+  bool rtcResponsive = probeRtc();
+  if (!rtcResponsive) {
+    // Attempt to recover the bus only if the RTC isn't answering to avoid
+    // disturbing other peripherals that are already working.
+    Wire.begin(config::SDA_PIN, config::SCL_PIN);
+    Wire.setClock(100000);
+    rtcResponsive = probeRtc();
+  } else {
+    Wire.setClock(100000);
+  }
 
   if (!rtcResponsive) {
     return false;
