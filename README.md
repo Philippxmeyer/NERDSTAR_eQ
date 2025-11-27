@@ -86,8 +86,8 @@ und irgendwann sagen: „Lauf, kleiner ESP, lauf mit den Sternen.“
 
 | Gerät / Signal                  | Pin am ESP32 (HID) | Bemerkung |
 | -------------------------------- | ------------------ | --------- |
-| OLED + RTC SDA                   | 21                 | Gemeinsamer I²C-Bus |
-| OLED + RTC SCL                   | 22                 | Gemeinsamer I²C-Bus |
+| OLED + RTC SDA                   | 22                 | Gemeinsamer I²C-Bus |
+| OLED + RTC SCL                   | 21                 | Gemeinsamer I²C-Bus |
 | Rotary-Encoder A                 | 18                 | INPUT_PULLUP verwenden |
 | Rotary-Encoder B                 | 19                 | INPUT_PULLUP verwenden |
 | Rotary-Encoder Button            | 23                 | Mit INPUT_PULLUP betreiben |
