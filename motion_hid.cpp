@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "comm.h"
-#include "debug.h"
 #include "state.h"
 
 namespace {
@@ -40,8 +39,6 @@ bool callAndUpdate(const char* command, std::initializer_list<String> params,
       Serial.printf("[MOTION] %s failed: %s\n", command,
                     error.isEmpty() ? "<unknown>" : error.c_str());
     }
-    String event = String("rpc_fail_") + command;
-    debug::recordEvent(event.c_str());
   }
   return success;
 }
