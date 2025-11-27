@@ -45,6 +45,8 @@ uint8_t g_pendingHour = 0;
 uint8_t g_pendingMinute = 0;
 uint8_t g_pendingSecond = 0;
 
+DateTime currentLocalTime();
+
 void resetPendingTarget() {
   g_pendingRaValid = false;
   g_pendingDecValid = false;
