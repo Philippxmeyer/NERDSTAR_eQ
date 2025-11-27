@@ -29,6 +29,10 @@ bool g_pendingRaValid = false;
 bool g_pendingDecValid = false;
 uint32_t g_lastClientActivityMs = 0;
 constexpr uint32_t kClientIdleTimeoutMs = 5UL * 60UL * 1000UL;
+bool g_pendingTimezoneUpdate = false;
+int32_t g_pendingTimezoneMinutes = 0;
+bool g_pendingLocalTimeUpdate = false;
+DateTime g_pendingLocalDateTime = DateTime((uint32_t)0);
 
 void resetPendingTarget() {
   g_pendingRaValid = false;
@@ -45,6 +49,30 @@ void persistObserverLocation(double latitudeDeg, double longitudeDeg,
 void persistNetworkTime(const DateTime& localTime) {
   time_t utcEpoch = time_utils::toUtcEpoch(localTime);
   display_menu::applyNetworkTime(utcEpoch);
+}
+
+void queueTimezoneUpdate(int32_t timezoneMinutes) {
+  g_pendingTimezoneMinutes = timezoneMinutes;
+  g_pendingTimezoneUpdate = true;
+}
+
+void queueLocalTimeUpdate(const DateTime& localTime) {
+  g_pendingLocalDateTime = localTime;
+  g_pendingLocalTimeUpdate = true;
+}
+
+void processPendingUpdates() {
+  if (g_pendingTimezoneUpdate) {
+    const auto& config = storage::getConfig();
+    persistObserverLocation(config.observerLatitudeDeg, config.observerLongitudeDeg,
+                            g_pendingTimezoneMinutes);
+    g_pendingTimezoneUpdate = false;
+  }
+
+  if (g_pendingLocalTimeUpdate) {
+    persistNetworkTime(g_pendingLocalDateTime);
+    g_pendingLocalTimeUpdate = false;
+  }
 }
 
 void clearClientState(bool notify) {
@@ -402,8 +430,7 @@ String handleCommand(const String& command) {
     }
     int32_t minutes = static_cast<int32_t>(round(hours * 60.0));
     minutes = std::clamp<int32_t>(minutes, -720, 840);
-    const auto& config = storage::getConfig();
-    persistObserverLocation(config.observerLatitudeDeg, config.observerLongitudeDeg, minutes);
+    queueTimezoneUpdate(minutes);
     return "1";
   }
   if (upper.startsWith(":SL")) {
@@ -421,7 +448,7 @@ String handleCommand(const String& command) {
     }
     DateTime local = currentLocalTime();
     DateTime updated(local.year(), local.month(), local.day(), h, m, s);
-    persistNetworkTime(updated);
+    queueLocalTimeUpdate(updated);
     return "1";
   }
   if (upper.startsWith(":SC")) {
@@ -440,7 +467,7 @@ String handleCommand(const String& command) {
     int fullYear = 2000 + (year % 100);
     DateTime local = currentLocalTime();
     DateTime updated(fullYear, month, day, local.hour(), local.minute(), local.second());
-    persistNetworkTime(updated);
+    queueLocalTimeUpdate(updated);
     return "1";
   }
   return "";
@@ -629,6 +656,7 @@ void update() {
       }
     }
   }
+  processPendingUpdates();
   updateDisplayStatus();
 }
 
