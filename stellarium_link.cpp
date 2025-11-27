@@ -29,6 +29,23 @@ bool g_pendingRaValid = false;
 bool g_pendingDecValid = false;
 uint32_t g_lastClientActivityMs = 0;
 constexpr uint32_t kClientIdleTimeoutMs = 5UL * 60UL * 1000UL;
+bool g_pendingTimezoneUpdate = false;
+int32_t g_pendingTimezoneMinutes = 0;
+bool g_pendingObserverLocationUpdate = false;
+bool g_pendingLatitudeUpdate = false;
+bool g_pendingLongitudeUpdate = false;
+double g_pendingLatitudeDeg = 0.0;
+double g_pendingLongitudeDeg = 0.0;
+bool g_pendingDateUpdate = false;
+bool g_pendingTimeUpdate = false;
+uint16_t g_pendingYear = 0;
+uint8_t g_pendingMonth = 0;
+uint8_t g_pendingDay = 0;
+uint8_t g_pendingHour = 0;
+uint8_t g_pendingMinute = 0;
+uint8_t g_pendingSecond = 0;
+
+DateTime currentLocalTime();
 
 void resetPendingTarget() {
   g_pendingRaValid = false;
@@ -45,6 +62,70 @@ void persistObserverLocation(double latitudeDeg, double longitudeDeg,
 void persistNetworkTime(const DateTime& localTime) {
   time_t utcEpoch = time_utils::toUtcEpoch(localTime);
   display_menu::applyNetworkTime(utcEpoch);
+}
+
+void queueTimezoneUpdate(int32_t timezoneMinutes) {
+  g_pendingTimezoneMinutes = timezoneMinutes;
+  g_pendingTimezoneUpdate = true;
+}
+
+void queueObserverLatitudeUpdate(double latitudeDeg) {
+  g_pendingLatitudeDeg = latitudeDeg;
+  g_pendingLatitudeUpdate = true;
+  g_pendingObserverLocationUpdate = true;
+}
+
+void queueObserverLongitudeUpdate(double longitudeDeg) {
+  g_pendingLongitudeDeg = longitudeDeg;
+  g_pendingLongitudeUpdate = true;
+  g_pendingObserverLocationUpdate = true;
+}
+
+void queueDateUpdate(uint16_t year, uint8_t month, uint8_t day) {
+  g_pendingYear = year;
+  g_pendingMonth = month;
+  g_pendingDay = day;
+  g_pendingDateUpdate = true;
+}
+
+void queueTimeUpdate(uint8_t hour, uint8_t minute, uint8_t second) {
+  g_pendingHour = hour;
+  g_pendingMinute = minute;
+  g_pendingSecond = second;
+  g_pendingTimeUpdate = true;
+}
+
+void processPendingUpdates() {
+  if (g_pendingObserverLocationUpdate || g_pendingTimezoneUpdate) {
+    const auto& config = storage::getConfig();
+    double latitude = g_pendingLatitudeUpdate ? g_pendingLatitudeDeg : config.observerLatitudeDeg;
+    double longitude = g_pendingLongitudeUpdate ? g_pendingLongitudeDeg : config.observerLongitudeDeg;
+    int32_t timezoneMinutes = g_pendingTimezoneUpdate ? g_pendingTimezoneMinutes : config.timezoneOffsetMinutes;
+
+    persistObserverLocation(latitude, longitude, timezoneMinutes);
+
+    g_pendingObserverLocationUpdate = false;
+    g_pendingLatitudeUpdate = false;
+    g_pendingLongitudeUpdate = false;
+    g_pendingTimezoneUpdate = false;
+  }
+
+  if (g_pendingDateUpdate || g_pendingTimeUpdate) {
+    DateTime base = currentLocalTime();
+
+    uint16_t year = g_pendingDateUpdate ? g_pendingYear : base.year();
+    uint8_t month = g_pendingDateUpdate ? g_pendingMonth : base.month();
+    uint8_t day = g_pendingDateUpdate ? g_pendingDay : base.day();
+
+    uint8_t hour = g_pendingTimeUpdate ? g_pendingHour : base.hour();
+    uint8_t minute = g_pendingTimeUpdate ? g_pendingMinute : base.minute();
+    uint8_t second = g_pendingTimeUpdate ? g_pendingSecond : base.second();
+
+    persistNetworkTime(DateTime(year, month, day, hour, minute, second));
+
+    g_pendingDateUpdate = false;
+    g_pendingTimeUpdate = false;
+  }
 }
 
 void clearClientState(bool notify) {
@@ -287,8 +368,7 @@ String handleCommand(const String& command) {
     if (!parseLatitudeCommand(payload, latitude)) {
       return "0";
     }
-    const auto& config = storage::getConfig();
-    persistObserverLocation(latitude, config.observerLongitudeDeg, config.timezoneOffsetMinutes);
+    queueObserverLatitudeUpdate(latitude);
     return "1";
   }
   if (trimmed.startsWith(":Sg")) {
@@ -297,8 +377,7 @@ String handleCommand(const String& command) {
     if (!parseLongitudeCommand(payload, longitude)) {
       return "0";
     }
-    const auto& config = storage::getConfig();
-    persistObserverLocation(config.observerLatitudeDeg, longitude, config.timezoneOffsetMinutes);
+    queueObserverLongitudeUpdate(longitude);
     return "1";
   }
   if (trimmed.startsWith(":Gt")) {
@@ -402,8 +481,7 @@ String handleCommand(const String& command) {
     }
     int32_t minutes = static_cast<int32_t>(round(hours * 60.0));
     minutes = std::clamp<int32_t>(minutes, -720, 840);
-    const auto& config = storage::getConfig();
-    persistObserverLocation(config.observerLatitudeDeg, config.observerLongitudeDeg, minutes);
+    queueTimezoneUpdate(minutes);
     return "1";
   }
   if (upper.startsWith(":SL")) {
@@ -419,9 +497,7 @@ String handleCommand(const String& command) {
     if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) {
       return "0";
     }
-    DateTime local = currentLocalTime();
-    DateTime updated(local.year(), local.month(), local.day(), h, m, s);
-    persistNetworkTime(updated);
+    queueTimeUpdate(static_cast<uint8_t>(h), static_cast<uint8_t>(m), static_cast<uint8_t>(s));
     return "1";
   }
   if (upper.startsWith(":SC")) {
@@ -438,9 +514,7 @@ String handleCommand(const String& command) {
       return "0";
     }
     int fullYear = 2000 + (year % 100);
-    DateTime local = currentLocalTime();
-    DateTime updated(fullYear, month, day, local.hour(), local.minute(), local.second());
-    persistNetworkTime(updated);
+    queueDateUpdate(static_cast<uint16_t>(fullYear), static_cast<uint8_t>(month), static_cast<uint8_t>(day));
     return "1";
   }
   return "";
@@ -629,6 +703,7 @@ void update() {
       }
     }
   }
+  processPendingUpdates();
   updateDisplayStatus();
 }
 
