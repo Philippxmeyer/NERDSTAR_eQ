@@ -1257,16 +1257,16 @@ void drawStatus(bool diagnostics) {
     display.print("Alt: ");
     display.print(altBuffer);
   }
-  if (rtcAvailable) {
-    DateTime now = time_utils::applyTimezone(rtc.now().unixtime());
-    char timeBuffer[16];
-    snprintf(timeBuffer, sizeof(timeBuffer), "%02d:%02d:%02d", now.hour(), now.minute(), now.second());
-    if (int y = nextY(); y >= 0) {
-      display.setCursor(0, y);
-      display.print("Time: ");
-      display.print(timeBuffer);
-    }
-  }
+  // if (rtcAvailable) {
+  //   DateTime now = time_utils::applyTimezone(rtc.now().unixtime());
+  //   char timeBuffer[16];
+  //   snprintf(timeBuffer, sizeof(timeBuffer), "%02d:%02d:%02d", now.hour(), now.minute(), now.second());
+  //   if (int y = nextY(); y >= 0) {
+  //     display.setCursor(0, y);
+  //     display.print("Time: ");
+  //     display.print(timeBuffer);
+  //   }
+  // }
   if (int y = nextY(); y >= 0) {
     display.setCursor(0, y);
     display.print("Align: ");
