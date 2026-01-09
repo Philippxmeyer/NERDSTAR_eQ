@@ -22,7 +22,8 @@ uint32_t g_linkInactiveSinceMs = 0;
 uint32_t g_linkActiveSinceMs = 0;
 constexpr uint32_t kLinkReadyConfirmMs = 250;
 constexpr uint32_t kLinkOfflineConfirmMs = 750;
-constexpr float kDegreesPerSecondPerRpm = 360.0f / 60.0f;
+constexpr float kDegreesPerSecondPerRpm =
+    360.0f / (60.0f * static_cast<float>(config::GEAR_RATIO));
 
 float shapeJoystickInput(float value) {
   float magnitude = fabsf(value);
