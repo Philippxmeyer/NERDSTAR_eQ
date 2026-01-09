@@ -15,29 +15,38 @@ constexpr size_t kConfigStorageSize = 256;
 bool eepromReady = false;
 
 SystemConfig systemConfig{kConfigMagic,
-                          {2048, 2048},
-                          {0.0, 0.0, 0, 0},
-                          {0, 0},
-                          {3.0f, 1.0f, 1.0f},
+                          {config::DEFAULT_JOYSTICK_CENTER,
+                           config::DEFAULT_JOYSTICK_CENTER},
+                          {config::DEFAULT_AXIS_STEPS_PER_DEG,
+                           config::DEFAULT_AXIS_STEPS_PER_DEG,
+                           config::DEFAULT_AZ_HOME_OFFSET,
+                           config::DEFAULT_ALT_HOME_OFFSET},
+                          {config::DEFAULT_BACKLASH_AZ_STEPS,
+                           config::DEFAULT_BACKLASH_ALT_STEPS},
+                          {config::DEFAULT_GOTO_MAX_SPEED_DEG_PER_SEC,
+                           config::DEFAULT_GOTO_ACCEL_DEG_PER_SEC2,
+                           config::DEFAULT_GOTO_DECEL_DEG_PER_SEC2},
                           config::OBSERVER_LATITUDE_DEG,
                           config::OBSERVER_LONGITUDE_DEG,
-                          60,
+                          config::DEFAULT_TIMEZONE_OFFSET_MINUTES,
                           DstMode::Auto,
-                          false,
-                          false,
-                          false,
-                          0,
-                          {3.0f, 1.0f, 1.0f},
-                          0,
-                          0,
-                          0,
-                          0,
-                          0,
-                          0.0,
-                          0.0,
-                          0.0,
+                          config::DEFAULT_JOYSTICK_CALIBRATED,
+                          config::DEFAULT_AXIS_CALIBRATED,
+                          config::DEFAULT_POLAR_ALIGNED,
+                          config::DEFAULT_LAST_RTC_EPOCH,
+                          {config::DEFAULT_PAN_MAX_SPEED_DEG_PER_SEC,
+                           config::DEFAULT_PAN_ACCEL_DEG_PER_SEC2,
+                           config::DEFAULT_PAN_DECEL_DEG_PER_SEC2},
+                          config::DEFAULT_JOYSTICK_SWAP_AXES,
+                          config::DEFAULT_JOYSTICK_INVERT_AZ,
+                          config::DEFAULT_JOYSTICK_INVERT_ALT,
+                          config::DEFAULT_MOTOR_INVERT_AZ,
+                          config::DEFAULT_MOTOR_INVERT_ALT,
+                          config::DEFAULT_ORIENTATION_AZ_BIAS_DEG,
+                          config::DEFAULT_ORIENTATION_ALT_BIAS_DEG,
+                          config::DEFAULT_ORIENTATION_SAMPLE_WEIGHT,
                           kConfigVersion,
-                          0x7F};
+                          config::DEFAULT_DISPLAY_CONTRAST};
 
 static_assert(sizeof(SystemConfig) <= kConfigStorageSize, "SystemConfig too large for config storage");
 
@@ -52,36 +61,38 @@ void applyDefaults() {
   constexpr double stepsPerMotorRev = config::FULLSTEPS_PER_REV * config::MICROSTEPS;
   constexpr double stepsPerAxisRev = stepsPerMotorRev * config::GEAR_RATIO;
   systemConfig.magic = kConfigMagic;
-  systemConfig.joystickCalibration = {2048, 2048};
+  systemConfig.joystickCalibration = {config::DEFAULT_JOYSTICK_CENTER,
+                                      config::DEFAULT_JOYSTICK_CENTER};
   systemConfig.axisCalibration.stepsPerDegreeAz = stepsPerAxisRev / 360.0;
   systemConfig.axisCalibration.stepsPerDegreeAlt = stepsPerAxisRev / 360.0;
-  systemConfig.axisCalibration.azHomeOffset = 0;
-  systemConfig.axisCalibration.altHomeOffset = 0;
-  systemConfig.backlash = {0, 0};
-  systemConfig.gotoProfile.maxSpeedDegPerSec = 3.0f;
-  systemConfig.gotoProfile.accelerationDegPerSec2 = 1.0f;
-  systemConfig.gotoProfile.decelerationDegPerSec2 = 1.0f;
+  systemConfig.axisCalibration.azHomeOffset = config::DEFAULT_AZ_HOME_OFFSET;
+  systemConfig.axisCalibration.altHomeOffset = config::DEFAULT_ALT_HOME_OFFSET;
+  systemConfig.backlash = {config::DEFAULT_BACKLASH_AZ_STEPS,
+                           config::DEFAULT_BACKLASH_ALT_STEPS};
+  systemConfig.gotoProfile.maxSpeedDegPerSec = config::DEFAULT_GOTO_MAX_SPEED_DEG_PER_SEC;
+  systemConfig.gotoProfile.accelerationDegPerSec2 = config::DEFAULT_GOTO_ACCEL_DEG_PER_SEC2;
+  systemConfig.gotoProfile.decelerationDegPerSec2 = config::DEFAULT_GOTO_DECEL_DEG_PER_SEC2;
   systemConfig.observerLatitudeDeg = config::OBSERVER_LATITUDE_DEG;
   systemConfig.observerLongitudeDeg = config::OBSERVER_LONGITUDE_DEG;
-  systemConfig.timezoneOffsetMinutes = 60;
+  systemConfig.timezoneOffsetMinutes = config::DEFAULT_TIMEZONE_OFFSET_MINUTES;
   systemConfig.dstMode = DstMode::Auto;
-  systemConfig.joystickCalibrated = false;
-  systemConfig.axisCalibrated = false;
-  systemConfig.polarAligned = false;
-  systemConfig.lastRtcEpoch = 0;
-  systemConfig.panningProfile.maxSpeedDegPerSec = 3.0f;
-  systemConfig.panningProfile.accelerationDegPerSec2 = 1.0f;
-  systemConfig.panningProfile.decelerationDegPerSec2 = 1.0f;
-  systemConfig.joystickSwapAxes = 0;
-  systemConfig.joystickInvertAz = 0;
-  systemConfig.joystickInvertAlt = 0;
-  systemConfig.motorInvertAz = 0;
-  systemConfig.motorInvertAlt = 0;
-  systemConfig.orientationAzBiasDeg = 0.0;
-  systemConfig.orientationAltBiasDeg = 0.0;
-  systemConfig.orientationSampleWeight = 0.0;
+  systemConfig.joystickCalibrated = config::DEFAULT_JOYSTICK_CALIBRATED;
+  systemConfig.axisCalibrated = config::DEFAULT_AXIS_CALIBRATED;
+  systemConfig.polarAligned = config::DEFAULT_POLAR_ALIGNED;
+  systemConfig.lastRtcEpoch = config::DEFAULT_LAST_RTC_EPOCH;
+  systemConfig.panningProfile.maxSpeedDegPerSec = config::DEFAULT_PAN_MAX_SPEED_DEG_PER_SEC;
+  systemConfig.panningProfile.accelerationDegPerSec2 = config::DEFAULT_PAN_ACCEL_DEG_PER_SEC2;
+  systemConfig.panningProfile.decelerationDegPerSec2 = config::DEFAULT_PAN_DECEL_DEG_PER_SEC2;
+  systemConfig.joystickSwapAxes = config::DEFAULT_JOYSTICK_SWAP_AXES;
+  systemConfig.joystickInvertAz = config::DEFAULT_JOYSTICK_INVERT_AZ;
+  systemConfig.joystickInvertAlt = config::DEFAULT_JOYSTICK_INVERT_ALT;
+  systemConfig.motorInvertAz = config::DEFAULT_MOTOR_INVERT_AZ;
+  systemConfig.motorInvertAlt = config::DEFAULT_MOTOR_INVERT_ALT;
+  systemConfig.orientationAzBiasDeg = config::DEFAULT_ORIENTATION_AZ_BIAS_DEG;
+  systemConfig.orientationAltBiasDeg = config::DEFAULT_ORIENTATION_ALT_BIAS_DEG;
+  systemConfig.orientationSampleWeight = config::DEFAULT_ORIENTATION_SAMPLE_WEIGHT;
   systemConfig.configVersion = kConfigVersion;
-  systemConfig.displayContrast = 0x7F;
+  systemConfig.displayContrast = config::DEFAULT_DISPLAY_CONTRAST;
 }
 
 bool profileIsInvalid(const GotoProfile& profile) {
@@ -116,15 +127,15 @@ bool init() {
     saveConfigInternal();
   } else {
     if (profileIsInvalid(systemConfig.gotoProfile)) {
-      systemConfig.gotoProfile.maxSpeedDegPerSec = 3.0f;
-      systemConfig.gotoProfile.accelerationDegPerSec2 = 1.0f;
-      systemConfig.gotoProfile.decelerationDegPerSec2 = 1.0f;
+      systemConfig.gotoProfile.maxSpeedDegPerSec = config::DEFAULT_GOTO_MAX_SPEED_DEG_PER_SEC;
+      systemConfig.gotoProfile.accelerationDegPerSec2 = config::DEFAULT_GOTO_ACCEL_DEG_PER_SEC2;
+      systemConfig.gotoProfile.decelerationDegPerSec2 = config::DEFAULT_GOTO_DECEL_DEG_PER_SEC2;
       needsSave = true;
     }
     if (profileIsInvalid(systemConfig.panningProfile)) {
-      systemConfig.panningProfile.maxSpeedDegPerSec = 3.0f;
-      systemConfig.panningProfile.accelerationDegPerSec2 = 1.0f;
-      systemConfig.panningProfile.decelerationDegPerSec2 = 1.0f;
+      systemConfig.panningProfile.maxSpeedDegPerSec = config::DEFAULT_PAN_MAX_SPEED_DEG_PER_SEC;
+      systemConfig.panningProfile.accelerationDegPerSec2 = config::DEFAULT_PAN_ACCEL_DEG_PER_SEC2;
+      systemConfig.panningProfile.decelerationDegPerSec2 = config::DEFAULT_PAN_DECEL_DEG_PER_SEC2;
       needsSave = true;
     }
     if (systemConfig.backlash.azSteps < 0) systemConfig.backlash.azSteps = 0;
@@ -140,7 +151,7 @@ bool init() {
       needsSave = true;
     }
     if (systemConfig.timezoneOffsetMinutes < -720 || systemConfig.timezoneOffsetMinutes > 840) {
-      systemConfig.timezoneOffsetMinutes = 60;
+      systemConfig.timezoneOffsetMinutes = config::DEFAULT_TIMEZONE_OFFSET_MINUTES;
       needsSave = true;
     }
     if (static_cast<uint8_t>(systemConfig.dstMode) > static_cast<uint8_t>(DstMode::Auto)) {
@@ -159,30 +170,30 @@ bool init() {
     sanitizeFlag(systemConfig.motorInvertAz);
     sanitizeFlag(systemConfig.motorInvertAlt);
     if (!isfinite(systemConfig.orientationAzBiasDeg)) {
-      systemConfig.orientationAzBiasDeg = 0.0;
+      systemConfig.orientationAzBiasDeg = config::DEFAULT_ORIENTATION_AZ_BIAS_DEG;
       needsSave = true;
     }
     if (!isfinite(systemConfig.orientationAltBiasDeg)) {
-      systemConfig.orientationAltBiasDeg = 0.0;
+      systemConfig.orientationAltBiasDeg = config::DEFAULT_ORIENTATION_ALT_BIAS_DEG;
       needsSave = true;
     }
     if (!isfinite(systemConfig.orientationSampleWeight) || systemConfig.orientationSampleWeight < 0.0) {
-      systemConfig.orientationSampleWeight = 0.0;
+      systemConfig.orientationSampleWeight = config::DEFAULT_ORIENTATION_SAMPLE_WEIGHT;
       needsSave = true;
     }
     if (systemConfig.configVersion < 2) {
-      systemConfig.joystickSwapAxes = 0;
-      systemConfig.joystickInvertAz = 0;
-      systemConfig.joystickInvertAlt = 0;
-      systemConfig.motorInvertAz = 0;
-      systemConfig.motorInvertAlt = 0;
-      systemConfig.orientationAzBiasDeg = 0.0;
-      systemConfig.orientationAltBiasDeg = 0.0;
-      systemConfig.orientationSampleWeight = 0.0;
+      systemConfig.joystickSwapAxes = config::DEFAULT_JOYSTICK_SWAP_AXES;
+      systemConfig.joystickInvertAz = config::DEFAULT_JOYSTICK_INVERT_AZ;
+      systemConfig.joystickInvertAlt = config::DEFAULT_JOYSTICK_INVERT_ALT;
+      systemConfig.motorInvertAz = config::DEFAULT_MOTOR_INVERT_AZ;
+      systemConfig.motorInvertAlt = config::DEFAULT_MOTOR_INVERT_ALT;
+      systemConfig.orientationAzBiasDeg = config::DEFAULT_ORIENTATION_AZ_BIAS_DEG;
+      systemConfig.orientationAltBiasDeg = config::DEFAULT_ORIENTATION_ALT_BIAS_DEG;
+      systemConfig.orientationSampleWeight = config::DEFAULT_ORIENTATION_SAMPLE_WEIGHT;
       needsSave = true;
     }
     if (systemConfig.configVersion < 3) {
-      systemConfig.displayContrast = 0x7F;
+      systemConfig.displayContrast = config::DEFAULT_DISPLAY_CONTRAST;
       needsSave = true;
     }
     if (systemConfig.configVersion != kConfigVersion) {
