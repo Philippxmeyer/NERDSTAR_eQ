@@ -2174,7 +2174,16 @@ void handleSpeedProfileInput(int delta) {
         showInfo("Goto saved");
       } else {
         storage::setPanningProfile(profile);
-        showInfo("Pan saved");
+        String error;
+        if (!comm::call("SET_PANNING_PROFILE",
+                        {String(profile.maxSpeedDegPerSec, 6),
+                         String(profile.accelerationDegPerSec2, 6),
+                         String(profile.decelerationDegPerSec2, 6)},
+                        nullptr, &error)) {
+          showInfo("Pan main sync failed", 2000);
+        } else {
+          showInfo("Pan saved");
+        }
       }
     } else {
       showInfo(speedProfileState.mode == SpeedEditMode::Goto ? "Goto unchanged"
@@ -4203,4 +4212,3 @@ void update() { updateGoto(); }
 }  // namespace display_menu
 
 #endif  // DEVICE_ROLE_HID
-

@@ -78,6 +78,32 @@ constexpr float GEAR_RATIO = 4.0f; // 1:4 reduction motor:telescope
 constexpr float JOYSTICK_DEADZONE = 0.03f;
 constexpr int JOYSTICK_X_DIRECTION = 1;  // Use -1 to invert the azimuth axis
 constexpr int JOYSTICK_Y_DIRECTION = 1;  // Use -1 to invert the altitude axis
+constexpr float DEFAULT_GOTO_MAX_SPEED_DEG_PER_SEC = 3.0f;
+constexpr float DEFAULT_GOTO_ACCEL_DEG_PER_SEC2 = 1.0f;
+constexpr float DEFAULT_GOTO_DECEL_DEG_PER_SEC2 = 1.0f;
+constexpr float DEFAULT_PAN_MAX_SPEED_DEG_PER_SEC = 3.0f;
+constexpr float DEFAULT_PAN_ACCEL_DEG_PER_SEC2 = 1.0f;
+constexpr float DEFAULT_PAN_DECEL_DEG_PER_SEC2 = 1.0f;
+constexpr int32_t DEFAULT_TIMEZONE_OFFSET_MINUTES = 60;
+constexpr uint8_t DEFAULT_DISPLAY_CONTRAST = 0x7F;
+constexpr double DEFAULT_ORIENTATION_AZ_BIAS_DEG = 0.0;
+constexpr double DEFAULT_ORIENTATION_ALT_BIAS_DEG = 0.0;
+constexpr double DEFAULT_ORIENTATION_SAMPLE_WEIGHT = 0.0;
+constexpr int DEFAULT_JOYSTICK_CENTER = 2048;
+constexpr double DEFAULT_AXIS_STEPS_PER_DEG = 0.0;
+constexpr int64_t DEFAULT_AZ_HOME_OFFSET = 0;
+constexpr int64_t DEFAULT_ALT_HOME_OFFSET = 0;
+constexpr int32_t DEFAULT_BACKLASH_AZ_STEPS = 0;
+constexpr int32_t DEFAULT_BACKLASH_ALT_STEPS = 0;
+constexpr bool DEFAULT_JOYSTICK_CALIBRATED = false;
+constexpr bool DEFAULT_AXIS_CALIBRATED = false;
+constexpr bool DEFAULT_POLAR_ALIGNED = false;
+constexpr uint32_t DEFAULT_LAST_RTC_EPOCH = 0;
+constexpr uint8_t DEFAULT_JOYSTICK_SWAP_AXES = 0;
+constexpr uint8_t DEFAULT_JOYSTICK_INVERT_AZ = 0;
+constexpr uint8_t DEFAULT_JOYSTICK_INVERT_ALT = 0;
+constexpr uint8_t DEFAULT_MOTOR_INVERT_AZ = 0;
+constexpr uint8_t DEFAULT_MOTOR_INVERT_ALT = 0;
 
 // Display configuration
 constexpr uint8_t OLED_WIDTH = 128;
@@ -102,4 +128,3 @@ constexpr double OBSERVER_LATITUDE_DEG = 50.7354;  // Default: Daaden
 constexpr double OBSERVER_LONGITUDE_DEG = 7.9671; // East positive
 
 } // namespace config
-

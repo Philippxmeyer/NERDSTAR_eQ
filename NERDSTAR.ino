@@ -299,6 +299,14 @@ void handleRequest(const comm::Request& request) {
     double alt = strtod(request.params[1].c_str(), nullptr);
     motion::setTrackingRates(az, alt);
     comm::sendOk(request.id, {});
+  } else if (cmd == "SET_PANNING_PROFILE") {
+    if (!requireParams(3)) return;
+    GotoProfile profile{};
+    profile.maxSpeedDegPerSec = strtod(request.params[0].c_str(), nullptr);
+    profile.accelerationDegPerSec2 = strtod(request.params[1].c_str(), nullptr);
+    profile.decelerationDegPerSec2 = strtod(request.params[2].c_str(), nullptr);
+    storage::setPanningProfile(profile);
+    comm::sendOk(request.id, {});
   } else if (cmd == "SET_WIFI_ENABLED") {
     if (!requireParams(1)) return;
     bool enabled = request.params[0] == "1";
@@ -433,4 +441,3 @@ void loop() {
 }
 
 #endif
-
