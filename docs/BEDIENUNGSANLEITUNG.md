@@ -97,7 +97,7 @@ Diese Anleitung führt dich Schritt für Schritt durch Inbetriebnahme und Bedien
 
 ### 5.2 Standort setzen
 1. `Setup → Set Location` aufrufen.
-2. Encoder drehen passt Breitengrad, Längengrad (West positiv, in 0,1°) sowie die Zeitzone (15-Minuten-Schritte) an.【F:display_menu.cpp†L805-L854】
+2. Encoder drehen passt Breitengrad, Längengrad (Ost positiv, in 0,1°) sowie die Zeitzone (15-Minuten-Schritte) an.【F:display_menu.cpp†L805-L854】
 3. Joystick drücken wechselt zum nächsten Feld, inklusive „Save/Back“.
 4. Encoder drücken bestätigt; „Save“ schreibt die Werte dauerhaft in den EEPROM.【F:display_menu.cpp†L1238-L1284】
 

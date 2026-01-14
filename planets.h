@@ -23,7 +23,6 @@ namespace planets {
 
 bool computePlanet(PlanetId id, float julianDay, PlanetPosition& out);
 bool planetFromString(const String& name, PlanetId& id);
-float julianDay(int year, int month, int day, float hourFraction);
+double julianDay(int year, int month, int day, double hourFraction);
 
 }  // namespace planets
-
