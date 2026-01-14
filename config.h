@@ -125,6 +125,6 @@ constexpr double SIDEREAL_DAY_SECONDS = 86164.0905;
 constexpr double POLARIS_RA_HOURS = 2.530301;     // 02h 31m 49s
 constexpr double POLARIS_DEC_DEGREES = 89.2641;   // +89° 15' 50"
 constexpr double OBSERVER_LATITUDE_DEG = 50.7354;  // Default: Daaden
-constexpr double OBSERVER_LONGITUDE_DEG = 7.9671; // East positive
+constexpr double OBSERVER_LONGITUDE_DEG = 7.9671; // West positive
 
 } // namespace config

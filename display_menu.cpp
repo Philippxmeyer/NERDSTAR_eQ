@@ -911,7 +911,7 @@ double localSiderealDegrees(const DateTime& time) {
                                  static_cast<float>(hourFraction(utc)));
   double T = (jd - 2451545.0) / 36525.0;
   double lst = 280.46061837 + 360.98564736629 * (jd - 2451545.0) +
-               0.000387933 * T * T - (T * T * T) / 38710000.0 +
+               0.000387933 * T * T - (T * T * T) / 38710000.0 -
                storage::getConfig().observerLongitudeDeg;
   return wrapAngle360(lst);
 }
@@ -1642,7 +1642,7 @@ void drawLocationSetup() {
   char buffer[24];
   snprintf(buffer, sizeof(buffer), "Lat: %+07.3f%c", locationEdit.latitudeDeg, kDegreeSymbol);
   drawRow(0, buffer);
-  snprintf(buffer, sizeof(buffer), "Lon: %+08.3f%c", locationEdit.longitudeDeg, kDegreeSymbol);
+  snprintf(buffer, sizeof(buffer), "Lon(W+): %+08.3f%c", locationEdit.longitudeDeg, kDegreeSymbol);
   drawRow(1, buffer);
 
   int tz = locationEdit.timezoneMinutes;
