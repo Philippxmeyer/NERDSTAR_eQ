@@ -3107,17 +3107,27 @@ void updateTracking() {
   double actualSkyAz = orientationModel.toSkyAz(currentAz);
   double actualSkyAlt = orientationModel.toSkyAlt(currentAlt);
 
-  if (systemState.joystickActive) {
+  bool joystickActive = systemState.joystickActive;
+  bool manualMotionActive = motion::isManualMotionActive();
+  if (joystickActive) {
     tracking.userAdjusting = true;
-  } else if (tracking.userAdjusting) {
+  }
+
+  if (tracking.userAdjusting) {
+    if (joystickActive || manualMotionActive) {
+      motion::setTrackingRates(0.0, 0.0);
+      motion::setTrackingEnabled(false);
+      systemState.trackingActive = true;
+      return;
+    }
+
     tracking.userAdjusting = false;
     tracking.offsetAzDeg = wrapAngle180(actualSkyAz - azDeg);
     tracking.offsetAltDeg = actualSkyAlt - altDeg;
     desiredAz = wrapAngle360(azDeg + tracking.offsetAzDeg);
     desiredAlt = altDeg + tracking.offsetAltDeg;
     desiredPhysicalAz = orientationModel.toPhysicalAz(desiredAz);
-    desiredPhysicalAlt =
-        orientationModel.toPhysicalAlt(desiredAlt);
+    desiredPhysicalAlt = orientationModel.toPhysicalAlt(desiredAlt);
     desiredPhysicalAlt = std::clamp(desiredPhysicalAlt, motion::getMinAltitudeDegrees(),
                                     motion::getMaxAltitudeDegrees());
   }

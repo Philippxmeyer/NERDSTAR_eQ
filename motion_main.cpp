@@ -463,6 +463,11 @@ void setTrackingRates(double azDegPerSec, double altDegPerSec) {
   setAxisTrackingContribution(axisAlt, altSteps);
 }
 
+bool isManualMotionActive() {
+  return (std::fabs(getAxisUserContribution(axisAz)) > kMinActiveStepsPerSecond ||
+          std::fabs(getAxisUserContribution(axisAlt)) > kMinActiveStepsPerSecond);
+}
+
 int64_t getStepCount(Axis axis) { return getAxisCounter(getAxisState(axis)); }
 
 void setStepCount(Axis axis, int64_t value) {
