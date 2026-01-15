@@ -268,7 +268,7 @@ Kurz gesagt: Der ESP32 weiß, wohin es geht, und bleibt dank Tracking dort.【F:
 
 - **WiFi OTA**: Über `Setup → WiFi OTA` lässt sich das WLAN pro Gerät aktivieren oder deaktivieren. Das HID-Board meldet den Status direkt im Menü; bei Erfolg werden beide ESP32 für OTA erreichbar gemacht.【F:display_menu.cpp†L205-L218】【F:display_menu.cpp†L724-L737】
 - **NTP & RTC**: Bei aktiver Verbindung synchronisiert sich das System regelmäßig mit NTP-Servern und aktualisiert dabei die lokale Zeit auf HID oder Main Controller.【F:wifi_ota.cpp†L64-L131】
-- **Standort & Zeitzone**: `Setup → Set Location` konfiguriert Breitengrad, Längengrad und Zeitzone (15-Minuten-Schritte). Diese Werte landen im EEPROM und bestimmen die Alt/Az-Berechnungen sowie die Planetenpositionen.【F:display_menu.cpp†L205-L218】【F:display_menu.cpp†L805-L854】【F:display_menu.cpp†L1238-L1284】
+- **Standort & Zeitzone**: `Setup → Set Location` konfiguriert Breitengrad, Längengrad (Ost positiv) und Zeitzone (15-Minuten-Schritte). Diese Werte landen im EEPROM und bestimmen die Alt/Az-Berechnungen sowie die Planetenpositionen.【F:display_menu.cpp†L205-L218】【F:display_menu.cpp†L805-L854】【F:display_menu.cpp†L1238-L1284】
 - **Sommerzeit (DST)**: `Setup → Set RTC` enthält einen DST-Schalter (Aus/An/Auto), der zusammen mit der Zeitzone für die Zeitkorrektur genutzt wird.【F:display_menu.cpp†L748-L803】【F:display_menu.cpp†L1587-L1611】
 
 ---

@@ -907,8 +907,7 @@ double hourFraction(const DateTime& time) {
 
 double localSiderealDegrees(const DateTime& time) {
   DateTime utc = toUtc(time);
-  double jd = planets::julianDay(utc.year(), utc.month(), utc.day(),
-                                 static_cast<float>(hourFraction(utc)));
+  double jd = planets::julianDay(utc.year(), utc.month(), utc.day(), hourFraction(utc));
   double T = (jd - 2451545.0) / 36525.0;
   double lst = 280.46061837 + 360.98564736629 * (jd - 2451545.0) +
                0.000387933 * T * T - (T * T * T) / 38710000.0 +
@@ -1127,9 +1126,9 @@ void getObjectRaDecAt(const CatalogObject& object,
   if (object.type.equalsIgnoreCase("planet") &&
       planets::planetFromString(object.name, planetId)) {
     DateTime futureUtc = toUtc(future);
-    float jd = planets::julianDay(
+    float jd = static_cast<float>(planets::julianDay(
         futureUtc.year(), futureUtc.month(), futureUtc.day(),
-        static_cast<float>(hourFraction(futureUtc) + fractional / 3600.0));
+        hourFraction(futureUtc) + fractional / 3600.0));
     PlanetPosition position;
     if (planets::computePlanet(planetId, jd, position)) {
       raHours = position.raHours;
@@ -1642,7 +1641,7 @@ void drawLocationSetup() {
   char buffer[24];
   snprintf(buffer, sizeof(buffer), "Lat: %+07.3f%c", locationEdit.latitudeDeg, kDegreeSymbol);
   drawRow(0, buffer);
-  snprintf(buffer, sizeof(buffer), "Lon: %+08.3f%c", locationEdit.longitudeDeg, kDegreeSymbol);
+  snprintf(buffer, sizeof(buffer), "Lon(E+): %+08.3f%c", locationEdit.longitudeDeg, kDegreeSymbol);
   drawRow(1, buffer);
 
   int tz = locationEdit.timezoneMinutes;

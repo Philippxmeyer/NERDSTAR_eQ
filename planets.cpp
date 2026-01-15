@@ -301,16 +301,16 @@ Vec3 earthVelocity(float jd) {
 
 namespace planets {
 
-float julianDay(int year, int month, int day, float hourFraction) {
+double julianDay(int year, int month, int day, double hourFraction) {
   if (month <= 2) {
     year -= 1;
     month += 12;
   }
   int A = year / 100;
   int B = 2 - A + A / 4;
-  float jd = floorf(365.25f * (year + 4716)) + floorf(30.6001f * (month + 1)) +
-             static_cast<float>(day) + static_cast<float>(B) - 1524.5f;
-  jd += hourFraction / 24.0f;
+  double jd = floor(365.25 * (year + 4716)) + floor(30.6001 * (month + 1)) +
+              static_cast<double>(day) + static_cast<double>(B) - 1524.5;
+  jd += hourFraction / 24.0;
   return jd;
 }
 
@@ -392,4 +392,3 @@ bool planetFromString(const String& name, PlanetId& id) {
 }
 
 }  // namespace planets
-
