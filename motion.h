@@ -20,6 +20,7 @@ void clearGotoRates();
 void stopAll();
 void setTrackingEnabled(bool enabled);
 void setTrackingRates(double azDegPerSec, double altDegPerSec);
+bool isManualMotionActive();
 int64_t getStepCount(Axis axis);
 void setStepCount(Axis axis, int64_t value);
 double stepsToAzDegrees(int64_t steps);
@@ -41,4 +42,3 @@ void motorTaskLoop();
 #endif
 
 } // namespace motion
-
