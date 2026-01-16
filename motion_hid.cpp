@@ -129,6 +129,10 @@ void setTrackingRates(double azDegPerSec, double altDegPerSec) {
                 {formatFloat(azDegPerSec), formatFloat(altDegPerSec)});
 }
 
+bool isManualMotionActive() {
+  return systemState.joystickActive;
+}
+
 int64_t getStepCount(Axis axis) {
   std::vector<String> payload;
   if (!callAndUpdate("GET_STEP_COUNT", {String(axisToString(axis))}, &payload)) {
@@ -273,4 +277,3 @@ int8_t getLastDirection(Axis axis) {
 }  // namespace motion
 
 #endif  // DEVICE_ROLE_HID
-
