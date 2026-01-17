@@ -361,6 +361,8 @@ constexpr int kSpeedProfileFieldCount = 4;
 
 String selectedObjectName;
 String gotoTargetName;
+double altValueBeforeFlip = 0.0;
+int64_t flipAzOffsetSteps = 0;
 
 int mainMenuIndex = 0;
 int mainMenuScroll = 0;
@@ -371,6 +373,7 @@ constexpr const char* kMainMenuItems[] = {"Status",
                                           "Catalog",
                                           "Goto Selected",
                                           "Goto RA/Dec",
+                                          "Flip Telescope",
                                           "Park",
                                           "Setup"};
 constexpr size_t kMainMenuCount = sizeof(kMainMenuItems) / sizeof(kMainMenuItems[0]);
@@ -571,6 +574,8 @@ void setUiState(UiState state) {
 }
 
 void abortGoto();
+void updateAltitudeLimits();
+void updateTracking();
 bool raDecToAltAz(const DateTime& when,
                   double raHours,
                   double decDegrees,
@@ -580,6 +585,7 @@ bool startGotoToObject(const CatalogObject& object, int catalogIndex);
 bool startGotoToCoordinates(double raHours, double decDegrees, const String& label);
 bool startTrackingCurrentOrientation();
 bool startParkPosition();
+bool startFlipTelescope();
 void drawStartupLockPrompt();
 void handleStartupLockPromptInput(int delta);
 void drawLockingStarMenu();
@@ -1074,7 +1080,6 @@ void finalizeLockingStarRefinement() {
     showInfo("Star unavailable");
     return;
   }
-  double currentAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
   double currentAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
   double azError = shortestAngularDistance(expectedAz, currentAz);
   double altError = currentAlt - expectedAlt;
@@ -1272,6 +1277,15 @@ void drawStatus(bool diagnostics) {
     display.print(systemState.polarAligned ? "Yes" : "No");
     display.print("  Trk: ");
     display.print(systemState.trackingActive ? "On" : "Off");
+  }
+  if (int y = nextY(); y >= 0) {
+    display.setCursor(0, y);
+    display.print("Flip: ");
+    if (systemState.flipInProgress) {
+      display.print("Moving");
+    } else {
+      display.print(systemState.telescopeFlipped ? "On" : "Off");
+    }
   }
 
   if (stellariumStatus.connected) {
@@ -2903,7 +2917,6 @@ bool planGotoTarget(const String& targetName, int targetCatalogIndex, ComputeFn 
   }
 
   DateTime now = currentDateTime();
-  double currentAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
   double currentAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
 
   double raNow;
@@ -3019,6 +3032,35 @@ bool startTrackingCurrentOrientation() {
   return true;
 }
 
+void completeFlipSuccess() {
+  motion::clearGotoRates();
+  systemState.gotoActive = false;
+  gotoRuntime.active = false;
+  systemState.flipInProgress = false;
+  motion::setStepCount(Axis::Alt, motion::altDegreesToSteps(altValueBeforeFlip));
+  flipAzOffsetSteps = 0;
+  updateAltitudeLimits();
+
+  const SystemConfig& config = storage::getConfig();
+  bool newJoystickInvertAlt = !(config.joystickInvertAlt != 0);
+  bool newMotorInvertAlt = !(config.motorInvertAlt != 0);
+  storage::setJoystickOrientation(config.joystickSwapAxes != 0,
+                                  config.joystickInvertAz != 0,
+                                  newJoystickInvertAlt);
+  storage::setMotorInversion(config.motorInvertAz != 0, newMotorInvertAlt);
+  axisOrientationState.joystickInvertAlt = newJoystickInvertAlt;
+  axisOrientationState.motorInvertAlt = newMotorInvertAlt;
+  motion::setMotorInversion(config.motorInvertAz != 0, newMotorInvertAlt);
+
+  systemState.telescopeFlipped = !systemState.telescopeFlipped;
+  showInfo("Flip done");
+  if (tracking.active) {
+    updateTracking();
+  } else {
+    systemState.trackingActive = false;
+  }
+}
+
 void completeGotoSuccess() {
   motion::clearGotoRates();
   systemState.gotoActive = false;
@@ -3054,6 +3096,21 @@ void abortGoto() {
   gotoRuntime.active = false;
   systemState.gotoActive = false;
   gotoRuntime.resumeTracking = true;
+  if (systemState.flipInProgress) {
+    systemState.flipInProgress = false;
+    if (flipAzOffsetSteps != 0) {
+      int64_t currentAzSteps = motion::getStepCount(Axis::Az);
+      motion::setStepCount(Axis::Az, currentAzSteps - flipAzOffsetSteps);
+    }
+    flipAzOffsetSteps = 0;
+    updateAltitudeLimits();
+    if (tracking.active) {
+      updateTracking();
+    } else {
+      systemState.trackingActive = false;
+    }
+    return;
+  }
   stopTracking();
   if (lockingStarFlowActive && lockingStarGotoInProgress) {
     lockingStarGotoInProgress = false;
@@ -3102,7 +3159,6 @@ void updateTracking() {
   double desiredPhysicalAlt = orientationModel.toPhysicalAlt(desiredAlt);
   desiredPhysicalAlt =
       std::clamp(desiredPhysicalAlt, motion::getMinAltitudeDegrees(), motion::getMaxAltitudeDegrees());
-  double currentAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
   double currentAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
   double actualSkyAz = orientationModel.toSkyAz(currentAz);
   double actualSkyAlt = orientationModel.toSkyAlt(currentAlt);
@@ -3170,7 +3226,11 @@ void updateGoto() {
   bool altDone = updateAxisGoto(Axis::Alt, gotoRuntime.alt, dt, gotoRuntime.profile);
 
   if (azDone && altDone) {
-    completeGotoSuccess();
+    if (systemState.flipInProgress) {
+      completeFlipSuccess();
+    } else {
+      completeGotoSuccess();
+    }
   }
 }
 
@@ -3198,6 +3258,78 @@ bool startGotoToCoordinates(double raHours, double decDegrees, const String& lab
     return computeManualTarget(raHours, decDegrees, start, secondsAhead, outRa, outDec, azDeg, altDeg, targetTime);
   };
   return planGotoTarget(label, -1, compute);
+}
+
+bool startFlipTelescope() {
+  if (!systemState.polarAligned || !orientationKnown) {
+    showInfo("Align first");
+    return false;
+  }
+
+  const AxisCalibration& cal = storage::getConfig().axisCalibration;
+  if (cal.stepsPerDegreeAz <= 0.0 || cal.stepsPerDegreeAlt <= 0.0) {
+    showInfo("Calibrate axes");
+    return false;
+  }
+
+  if (systemState.flipInProgress) {
+    showInfo("Flip active");
+    return false;
+  }
+
+  if (gotoRuntime.active || systemState.gotoActive) {
+    showInfo("Goto active");
+    return false;
+  }
+
+  if (tracking.active) {
+    tracking.userAdjusting = false;
+    motion::setTrackingEnabled(false);
+    motion::setTrackingRates(0.0, 0.0);
+    systemState.trackingActive = false;
+  }
+
+  double currentAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
+  altValueBeforeFlip = currentAlt;
+  flipAzOffsetSteps = static_cast<int64_t>(llround(180.0 * cal.stepsPerDegreeAz));
+
+  systemState.flipInProgress = true;
+  updateAltitudeLimits();
+
+  int64_t currentAzSteps = motion::getStepCount(Axis::Az);
+  int64_t currentAltSteps = motion::getStepCount(Axis::Alt);
+  motion::setStepCount(Axis::Az, currentAzSteps + flipAzOffsetSteps);
+
+  int64_t adjustedAzSteps = motion::getStepCount(Axis::Az);
+  double altDelta = (90.0 - currentAlt) * 2.0;
+  int64_t targetAzSteps = adjustedAzSteps + flipAzOffsetSteps;
+  int64_t targetAltSteps =
+      currentAltSteps + static_cast<int64_t>(llround(altDelta * cal.stepsPerDegreeAlt));
+
+  GotoProfileSteps profile = toProfileSteps(storage::getConfig().gotoProfile, cal);
+  gotoRuntime.active = true;
+  gotoRuntime.az = initAxisRuntime(Axis::Az, targetAzSteps);
+  gotoRuntime.alt = initAxisRuntime(Axis::Alt, targetAltSteps);
+  gotoRuntime.profile = profile;
+  double durationAz = computeTravelTimeSteps(static_cast<double>(targetAzSteps - adjustedAzSteps),
+                                             profile.maxSpeedAz, profile.accelerationAz, profile.decelerationAz);
+  double durationAlt = computeTravelTimeSteps(static_cast<double>(targetAltSteps - currentAltSteps),
+                                              profile.maxSpeedAlt, profile.accelerationAlt, profile.decelerationAlt);
+  gotoRuntime.estimatedDurationSec = std::max(durationAz, durationAlt) + 1.0;
+  gotoRuntime.lastUpdateMs = millis();
+  gotoRuntime.startTime = currentDateTime();
+  gotoRuntime.targetRaHours = 0.0;
+  gotoRuntime.targetDecDegrees = 0.0;
+  gotoRuntime.targetCatalogIndex = -1;
+  gotoRuntime.resumeTracking = true;
+
+  systemState.gotoActive = true;
+  systemState.azGotoTarget = targetAzSteps;
+  systemState.altGotoTarget = targetAltSteps;
+  gotoTargetName = sanitizeForDisplay("Flip");
+  motion::clearGotoRates();
+  showInfo("Flipping");
+  return true;
 }
 
 bool startParkPosition() {
@@ -3374,9 +3506,12 @@ void handleMainMenuInput(int delta) {
       enterGotoCoordinateEntry();
       break;
     case 7:
-      startParkPosition();
+      startFlipTelescope();
       break;
     case 8:
+      startParkPosition();
+      break;
+    case 9:
       enterSetupMenu();
       break;
     default:
@@ -3931,18 +4066,23 @@ void stopTracking() {
   motion::setTrackingRates(0.0, 0.0);
 }
 
+void updateAltitudeLimits() {
+  bool enabled = orientationKnown && !systemState.flipInProgress;
+  motion::setAltitudeLimitsEnabled(enabled);
+}
+
 void applyOrientationState(bool known) {
   orientationKnown = known;
   if (!known) {
     stopTracking();
-    motion::setAltitudeLimitsEnabled(false);
+    updateAltitudeLimits();
     gotoRuntime.active = false;
     systemState.gotoActive = false;
     motion::clearGotoRates();
     motion::setStepCount(Axis::Az, 0);
     motion::setStepCount(Axis::Alt, 0);
   } else {
-    motion::setAltitudeLimitsEnabled(true);
+    updateAltitudeLimits();
   }
 }
 
