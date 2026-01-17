@@ -1080,6 +1080,7 @@ void finalizeLockingStarRefinement() {
     showInfo("Star unavailable");
     return;
   }
+  double currentAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
   double currentAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
   double azError = shortestAngularDistance(expectedAz, currentAz);
   double altError = currentAlt - expectedAlt;
@@ -2917,6 +2918,7 @@ bool planGotoTarget(const String& targetName, int targetCatalogIndex, ComputeFn 
   }
 
   DateTime now = currentDateTime();
+  double currentAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
   double currentAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
 
   double raNow;
@@ -3159,6 +3161,7 @@ void updateTracking() {
   double desiredPhysicalAlt = orientationModel.toPhysicalAlt(desiredAlt);
   desiredPhysicalAlt =
       std::clamp(desiredPhysicalAlt, motion::getMinAltitudeDegrees(), motion::getMaxAltitudeDegrees());
+  double currentAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
   double currentAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
   double actualSkyAz = orientationModel.toSkyAz(currentAz);
   double actualSkyAlt = orientationModel.toSkyAlt(currentAlt);
@@ -4012,6 +4015,11 @@ void handlePolarAlignInput() {
   }
 }
 
+void updateAltitudeLimits() {
+  bool enabled = orientationKnown && !systemState.flipInProgress;
+  motion::setAltitudeLimitsEnabled(enabled);
+}
+
 }  // namespace
 
 DateTime currentDateTime() { return computeCurrentDateTime(); }
@@ -4064,11 +4072,6 @@ void stopTracking() {
   systemState.trackingActive = false;
   motion::setTrackingEnabled(false);
   motion::setTrackingRates(0.0, 0.0);
-}
-
-void updateAltitudeLimits() {
-  bool enabled = orientationKnown && !systemState.flipInProgress;
-  motion::setAltitudeLimitsEnabled(enabled);
 }
 
 void applyOrientationState(bool known) {
