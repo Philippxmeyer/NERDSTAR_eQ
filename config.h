@@ -99,11 +99,11 @@ constexpr bool DEFAULT_JOYSTICK_CALIBRATED = false;
 constexpr bool DEFAULT_AXIS_CALIBRATED = false;
 constexpr bool DEFAULT_POLAR_ALIGNED = false;
 constexpr uint32_t DEFAULT_LAST_RTC_EPOCH = 0;
-constexpr uint8_t DEFAULT_JOYSTICK_SWAP_AXES = 0;
-constexpr uint8_t DEFAULT_JOYSTICK_INVERT_AZ = 0;
+constexpr uint8_t DEFAULT_JOYSTICK_SWAP_AXES = 1;
+constexpr uint8_t DEFAULT_JOYSTICK_INVERT_AZ = 1;
 constexpr uint8_t DEFAULT_JOYSTICK_INVERT_ALT = 0;
-constexpr uint8_t DEFAULT_MOTOR_INVERT_AZ = 0;
-constexpr uint8_t DEFAULT_MOTOR_INVERT_ALT = 0;
+constexpr uint8_t DEFAULT_MOTOR_INVERT_AZ = 1;
+constexpr uint8_t DEFAULT_MOTOR_INVERT_ALT = 1;
 
 // Display configuration
 constexpr uint8_t OLED_WIDTH = 128;
