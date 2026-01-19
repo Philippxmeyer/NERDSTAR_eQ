@@ -25,7 +25,8 @@ struct SystemState {
   bool joystickButtonPressed;
   bool mountLinkReady;
   bool manualCommandOk;
+  bool telescopeFlipped;
+  bool flipInProgress;
 };
 
 extern SystemState systemState;
-
