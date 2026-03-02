@@ -1136,9 +1136,21 @@ void getObjectRaDecAt(const CatalogObject& object,
     *futureTime = future;
   }
 
+  if (object.type.equalsIgnoreCase("moon") && planets::moonFromString(object.name)) {
+    DateTime futureUtc = toUtc(future);
+    float jd = static_cast<float>(planets::julianDay(
+        futureUtc.year(), futureUtc.month(), futureUtc.day(),
+        hourFraction(futureUtc) + fractional / 3600.0));
+    PlanetPosition position;
+    if (planets::computeMoon(jd, position)) {
+      raHours = position.raHours;
+      decDegrees = position.decDegrees;
+    }
+    return;
+  }
+
   PlanetId planetId;
-  if (object.type.equalsIgnoreCase("planet") &&
-      planets::planetFromString(object.name, planetId)) {
+  if (object.type.equalsIgnoreCase("planet") && planets::planetFromString(object.name, planetId)) {
     DateTime futureUtc = toUtc(future);
     float jd = static_cast<float>(planets::julianDay(
         futureUtc.year(), futureUtc.month(), futureUtc.day(),
