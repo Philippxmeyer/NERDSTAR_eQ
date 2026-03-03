@@ -31,6 +31,8 @@ constexpr float kJulianCentury = 36525.0f;
 constexpr float kJulianMillennium = 365250.0f;
 constexpr float kSpeedOfLightAuPerDay = 173.1446327f;
 constexpr float kObliquityJ2000 = 23.43929111f * kDegToRad;
+constexpr float kEarthRadiusKm = 6378.137f;
+constexpr float kAuKm = 149597870.7f;
 
 struct Vec3 {
   float x;
@@ -52,6 +54,14 @@ float julianCenturies(float jd) {
 
 float julianMillennia(float jd) {
   return (jd - 2451545.0f) / kJulianMillennium;
+}
+
+float normalizeDegrees(float value) {
+  float result = fmodf(value, 360.0f);
+  if (result < 0.0f) {
+    result += 360.0f;
+  }
+  return result;
 }
 
 float evaluateComponent(const VsopComponent& component, float t) {
@@ -353,6 +363,57 @@ bool computePlanet(PlanetId id, float julianDay, PlanetPosition& out) {
   return true;
 }
 
+bool computeMoon(float julianDay, PlanetPosition& out) {
+  // Low-precision lunar ephemeris suitable for pointing (Meeus-style terms).
+  float d = julianDay - 2451543.5f;
+
+  float n = normalizeDegrees(125.1228f - 0.0529538083f * d);
+  float i = 5.1454f;
+  float w = normalizeDegrees(318.0634f + 0.1643573223f * d);
+  float a = 60.2666f;    // Earth radii.
+  float e = 0.054900f;
+  float m = normalizeDegrees(115.3654f + 13.0649929509f * d);
+
+  float mRad = m * kDegToRad;
+  float eAnomaly = m + (180.0f / kPi) * e * sinf(mRad) * (1.0f + e * cosf(mRad));
+  float eRad = eAnomaly * kDegToRad;
+
+  float xv = a * (cosf(eRad) - e);
+  float yv = a * (sqrtf(1.0f - e * e) * sinf(eRad));
+
+  float trueAnomaly = atan2f(yv, xv);
+  float radius = sqrtf(xv * xv + yv * yv);
+
+  float nRad = n * kDegToRad;
+  float iRad = i * kDegToRad;
+  float wRad = w * kDegToRad;
+
+  float xh = radius * (cosf(nRad) * cosf(trueAnomaly + wRad) -
+                       sinf(nRad) * sinf(trueAnomaly + wRad) * cosf(iRad));
+  float yh = radius * (sinf(nRad) * cosf(trueAnomaly + wRad) +
+                       cosf(nRad) * sinf(trueAnomaly + wRad) * cosf(iRad));
+  float zh = radius * (sinf(trueAnomaly + wRad) * sinf(iRad));
+
+  float lon = atan2f(yh, xh);
+  float lat = atan2f(zh, sqrtf(xh * xh + yh * yh));
+
+  float ecl = (23.4393f - 3.563e-7f * d) * kDegToRad;
+  float xeq = cosf(lon) * cosf(lat);
+  float yeq = sinf(lon) * cosf(lat) * cosf(ecl) - sinf(lat) * sinf(ecl);
+  float zeq = sinf(lon) * cosf(lat) * sinf(ecl) + sinf(lat) * cosf(ecl);
+
+  float ra = atan2f(yeq, xeq);
+  if (ra < 0.0f) {
+    ra += kTwoPi;
+  }
+  float dec = atan2f(zeq, sqrtf(xeq * xeq + yeq * yeq));
+
+  out.raHours = normalizeRadians(ra) * kRadToHour;
+  out.decDegrees = dec * kRadToDeg;
+  out.distanceAu = (radius * kEarthRadiusKm) / kAuKm;
+  return true;
+}
+
 bool planetFromString(const String& name, PlanetId& id) {
   String lower = name;
   lower.toLowerCase();
@@ -389,6 +450,12 @@ bool planetFromString(const String& name, PlanetId& id) {
     return true;
   }
   return false;
+}
+
+bool moonFromString(const String& name) {
+  String lower = name;
+  lower.toLowerCase();
+  return lower == "moon" || lower == "earth moon";
 }
 
 }  // namespace planets

@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List
@@ -20,9 +19,10 @@ TYPE_ORDER = [
     "Planetary Nebula",
 ]
 
-SYNTHETIC_TYPE_CYCLE = ["Galaxy"]
 
-TARGET_COUNT = 300
+SOUTHMOST_LATITUDE_DEG = 36.0
+MIN_VISIBLE_DECLINATION_DEG = SOUTHMOST_LATITUDE_DEG - 90.0
+
 NEW_ENTRY_PREFIX = "NGC "
 NEW_ENTRY_START_NUMBER = 3000
 
@@ -53,6 +53,27 @@ class CatalogObject:
             raise ValueError(f"Dec out of range for {self.name}: {self.dec_degrees}")
         if not (-30.0 <= self.magnitude <= 30.0):
             raise ValueError(f"magnitude out of range for {self.name}: {self.magnitude}")
+
+
+COMMON_NAMES_BY_CODE = {
+    "Messier 008": "Lagoon Nebula",
+    "Messier 012": "Gumball Cluster",
+    "Messier 014": "Globular Cluster M14",
+    "Messier 016": "Eagle Nebula",
+    "Messier 017": "Omega Nebula",
+    "Messier 020": "Trifid Nebula",
+    "Messier 027": "Dumbbell Nebula",
+    "Messier 042": "Orion Nebula",
+    "Messier 043": "De Mairan's Nebula",
+    "Messier 057": "Ring Nebula",
+    "Messier 076": "Little Dumbbell Nebula",
+    "Messier 078": "Casper the Friendly Ghost",
+    "Messier 097": "Owl Nebula",
+    "NGC 0253": "Silver Coin Galaxy",
+    "NGC 2403": "Camelopardalis Galaxy",
+    "NGC 2903": "Spiral Galaxy NGC 2903",
+    "NGC 7000": "North America Nebula",
+}
 
 
 def load_catalog(path: Path) -> List[CatalogObject]:
@@ -87,56 +108,27 @@ def _parse_ngc_number(name: str) -> int | None:
 
 
 def normalize_generated_objects(objects: List[CatalogObject]) -> None:
-    """Reclassify legacy synthetic entries that used real NGC identifiers."""
+    """Drop synthetic filler entries from previous catalog generations."""
 
-    synthetic_candidates: List[tuple[int, CatalogObject]] = []
+    objects[:] = [
+        obj
+        for obj in objects
+        if (_parse_ngc_number(obj.name) or -1) < NEW_ENTRY_START_NUMBER
+    ]
+
+
+def rename_catalog_only_objects(objects: List[CatalogObject]) -> None:
     for obj in objects:
-        number = _parse_ngc_number(obj.name)
-        if number is None:
+        if obj.name != obj.code:
             continue
-        if number < NEW_ENTRY_START_NUMBER:
-            continue
-        if number >= NEW_ENTRY_START_NUMBER + 200:
-            continue
-        synthetic_candidates.append((number, obj))
-
-    for _, obj in synthetic_candidates:
-        if obj.type != "Galaxy":
-            obj.type = "Galaxy"
+        replacement = COMMON_NAMES_BY_CODE.get(obj.code)
+        if replacement:
+            obj.name = replacement
             obj.validate()
 
 
-def generate_additional_objects(existing: Iterable[CatalogObject], needed: int) -> List[CatalogObject]:
-    existing_names = {obj.name for obj in existing}
-    objects: List[CatalogObject] = []
-    # Synthetic filler objects should represent static deep-sky targets.
-    # Generating artificial planets leads to confusing catalog entries,
-    # so we limit the cycle to fixed sky objects only.
-    type_cycle = SYNTHETIC_TYPE_CYCLE
-    generated = 0
-    number = NEW_ENTRY_START_NUMBER
-    while generated < needed:
-        name = f"{NEW_ENTRY_PREFIX}{number}"
-        number += 1
-        if name in existing_names:
-            continue
-        type_name = type_cycle[generated % len(type_cycle)]
-        ra = (0.75 + generated * 0.213) % 24.0
-        dec = -40.0 + math.fmod(generated * 2.75, 80.0)
-        magnitude = 6.2 + (generated % 12) * 0.3
-        obj = CatalogObject(
-            name=name,
-            code=name,
-            type=type_name,
-            ra_hours=round(ra, 4),
-            dec_degrees=round(dec, 4),
-            magnitude=round(magnitude, 1),
-        )
-        obj.validate()
-        existing_names.add(name)
-        objects.append(obj)
-        generated += 1
-    return objects
+def filter_visible_objects(objects: List[CatalogObject]) -> List[CatalogObject]:
+    return [obj for obj in objects if obj.dec_degrees >= MIN_VISIBLE_DECLINATION_DEG]
 
 
 def sort_catalog(objects: Iterable[CatalogObject]) -> List[CatalogObject]:
@@ -212,9 +204,9 @@ def main() -> None:
 
     objects = load_catalog(xml_path)
     normalize_generated_objects(objects)
-    if len(objects) < TARGET_COUNT:
-        objects.extend(generate_additional_objects(objects, TARGET_COUNT - len(objects)))
-    sorted_objects = sort_catalog(objects)
+    rename_catalog_only_objects(objects)
+    visible_objects = filter_visible_objects(objects)
+    sorted_objects = sort_catalog(visible_objects)
     write_xml(xml_path, sorted_objects)
     write_inc(inc_path, sorted_objects)
 

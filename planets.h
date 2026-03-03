@@ -22,7 +22,9 @@ enum class PlanetId {
 namespace planets {
 
 bool computePlanet(PlanetId id, float julianDay, PlanetPosition& out);
+bool computeMoon(float julianDay, PlanetPosition& out);
 bool planetFromString(const String& name, PlanetId& id);
+bool moonFromString(const String& name);
 double julianDay(int year, int month, int day, double hourFraction);
 
 }  // namespace planets
