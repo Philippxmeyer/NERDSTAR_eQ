@@ -8,8 +8,6 @@
   <object name="Uranus" code="Uranus" type="Planet" ra_hours="0.0000" dec_degrees="0.0000" magnitude="5.7"/>
   <object name="Venus" code="Venus" type="Planet" ra_hours="0.0000" dec_degrees="0.0000" magnitude="-4.4"/>
   <object name="Earth Moon" code="Earth Moon" type="Moon" ra_hours="0.0000" dec_degrees="0.0000" magnitude="-12.7"/>
-  <object name="Achernar" code="alpha eridani" type="Star" ra_hours="1.6286" dec_degrees="-57.2367" magnitude="0.5"/>
-  <object name="Acrux" code="alpha crucis" type="Star" ra_hours="12.4433" dec_degrees="-63.0989" magnitude="0.8"/>
   <object name="Adhara" code="epsilon canis majoris" type="Star" ra_hours="6.9771" dec_degrees="-28.9719" magnitude="1.5"/>
   <object name="Alcyone" code="eta tauri" type="Star" ra_hours="3.7914" dec_degrees="24.1053" magnitude="2.9"/>
   <object name="Aldebaran" code="alpha tauri" type="Star" ra_hours="4.5987" dec_degrees="16.5092" magnitude="0.9"/>
@@ -18,13 +16,10 @@
   <object name="Alioth" code="epsilon ursae majoris" type="Star" ra_hours="12.9005" dec_degrees="55.9597" magnitude="1.8"/>
   <object name="Alnair" code="alpha gruis" type="Star" ra_hours="22.1372" dec_degrees="-46.9611" magnitude="1.7"/>
   <object name="Alnilam" code="epsilon orionis" type="Star" ra_hours="5.6036" dec_degrees="-1.2019" magnitude="1.7"/>
-  <object name="Alpha Centauri" code="alpha centauri" type="Star" ra_hours="14.6601" dec_degrees="-60.8339" magnitude="-0.0"/>
   <object name="Alphard" code="alpha hydrae" type="Star" ra_hours="9.4598" dec_degrees="-8.6583" magnitude="2.0"/>
-  <object name="Alsephina" code="delta velorum" type="Star" ra_hours="8.7451" dec_degrees="-54.7086" magnitude="2.0"/>
   <object name="Altair" code="alpha aquilae" type="Star" ra_hours="19.8464" dec_degrees="8.8683" magnitude="0.8"/>
   <object name="Antares" code="alpha scorpii" type="Star" ra_hours="16.4901" dec_degrees="-26.4319" magnitude="1.1"/>
   <object name="Arcturus" code="alpha bootis" type="Star" ra_hours="14.2610" dec_degrees="19.1825" magnitude="-0.1"/>
-  <object name="Atria" code="alpha trianguli australis" type="Star" ra_hours="16.8111" dec_degrees="-69.0278" magnitude="1.9"/>
   <object name="Bellatrix" code="gamma orionis" type="Star" ra_hours="5.4189" dec_degrees="6.3497" magnitude="1.6"/>
   <object name="Betelgeuse" code="alpha orionis" type="Star" ra_hours="5.9195" dec_degrees="7.4069" magnitude="0.4"/>
   <object name="Canopus" code="alpha carinae" type="Star" ra_hours="6.3992" dec_degrees="-52.6958" magnitude="-0.7"/>
@@ -37,17 +32,13 @@
   <object name="Eltanin" code="gamma draconis" type="Star" ra_hours="17.9434" dec_degrees="51.4889" magnitude="2.2"/>
   <object name="Enif" code="epsilon pegasi" type="Star" ra_hours="21.7364" dec_degrees="9.8750" magnitude="2.4"/>
   <object name="Fomalhaut" code="alpha piscis austrini" type="Star" ra_hours="22.9608" dec_degrees="-29.6222" magnitude="1.2"/>
-  <object name="Gacrux" code="gamma crucis" type="Star" ra_hours="12.5194" dec_degrees="-57.1133" magnitude="1.6"/>
-  <object name="Hadar" code="beta centauri" type="Star" ra_hours="14.0637" dec_degrees="-60.3731" magnitude="0.6"/>
   <object name="Kaus Australis" code="epsilon sagittarii" type="Star" ra_hours="18.4029" dec_degrees="-34.3847" magnitude="1.8"/>
   <object name="Kochab" code="beta ursae minoris" type="Star" ra_hours="14.8451" dec_degrees="74.1556" magnitude="2.1"/>
   <object name="Markab" code="alpha pegasi" type="Star" ra_hours="23.0794" dec_degrees="15.2053" magnitude="2.5"/>
   <object name="Menkent" code="theta centauri" type="Star" ra_hours="14.1114" dec_degrees="-36.3700" magnitude="2.1"/>
-  <object name="Miaplacidus" code="beta carinae" type="Star" ra_hours="9.2202" dec_degrees="-69.7175" magnitude="1.7"/>
-  <object name="Mimosa" code="beta crucis" type="Star" ra_hours="12.7954" dec_degrees="-59.6886" magnitude="1.3"/>
   <object name="Mirfak" code="alpha persei" type="Star" ra_hours="3.4054" dec_degrees="49.8611" magnitude="1.8"/>
   <object name="Mirzam" code="beta canis majoris" type="Star" ra_hours="6.3782" dec_degrees="-17.9558" magnitude="2.0"/>
-  <object name="Peacock" code="alpha pavonis" type="Star" ra_hours="20.4275" dec_degrees="-56.7350" magnitude="1.9"/>
+  <object name="Polaris" code="alpha ursae minoris" type="Star" ra_hours="2.5303" dec_degrees="89.2641" magnitude="2.0"/>
   <object name="Pollux" code="beta geminorum" type="Star" ra_hours="7.7553" dec_degrees="28.0261" magnitude="1.1"/>
   <object name="Procyon" code="alpha canis minoris" type="Star" ra_hours="7.6550" dec_degrees="5.2250" magnitude="0.3"/>
   <object name="Rasalhague" code="alpha ophiuchi" type="Star" ra_hours="17.5822" dec_degrees="12.5600" magnitude="2.1"/>
@@ -59,22 +50,21 @@
   <object name="Spica" code="alpha virginis" type="Star" ra_hours="13.4199" dec_degrees="-11.1614" magnitude="1.0"/>
   <object name="Vega" code="alpha lyrae" type="Star" ra_hours="18.6156" dec_degrees="38.7836" magnitude="0.0"/>
   <object name="Wezen" code="delta canis majoris" type="Star" ra_hours="7.1399" dec_degrees="-26.3931" magnitude="1.8"/>
-  <object name="47 Tucanae" code="NGC 0104" type="Cluster" ra_hours="0.4015" dec_degrees="-72.0811" magnitude="4.0"/>
   <object name="Ara Cluster" code="NGC 6397" type="Cluster" ra_hours="17.6783" dec_degrees="-53.6742" magnitude="5.8"/>
   <object name="Beehive Cluster" code="Messier 044" type="Cluster" ra_hours="8.6733" dec_degrees="19.6667" magnitude="3.1"/>
   <object name="Butterfly Cluster" code="Messier 010" type="Cluster" ra_hours="16.9525" dec_degrees="-4.0994" magnitude="6.6"/>
   <object name="Butterfly Cluster" code="Messier 093" type="Cluster" ra_hours="7.7417" dec_degrees="-23.8500" magnitude="6.2"/>
   <object name="Double Cluster A" code="NGC 0869" type="Cluster" ra_hours="2.3167" dec_degrees="57.1500" magnitude="4.3"/>
   <object name="Double Cluster B" code="NGC 0884" type="Cluster" ra_hours="2.3667" dec_degrees="57.1333" magnitude="4.0"/>
+  <object name="Globular Cluster M14" code="Messier 014" type="Cluster" ra_hours="17.6267" dec_degrees="-3.2458" magnitude="7.6"/>
   <object name="Great Hercules Cluster" code="Messier 013" type="Cluster" ra_hours="16.6947" dec_degrees="36.4603" magnitude="5.8"/>
+  <object name="Gumball Cluster" code="Messier 012" type="Cluster" ra_hours="16.7872" dec_degrees="-1.9483" magnitude="6.6"/>
   <object name="Hercules Cluster" code="Messier 003" type="Cluster" ra_hours="13.7032" dec_degrees="28.3756" magnitude="6.2"/>
   <object name="King Cobra Cluster" code="Messier 067" type="Cluster" ra_hours="8.8550" dec_degrees="11.8000" magnitude="6.9"/>
   <object name="Lagoon Cluster" code="NGC 6530" type="Cluster" ra_hours="18.0753" dec_degrees="-24.3533" magnitude="4.6"/>
   <object name="Little Beehive" code="Messier 041" type="Cluster" ra_hours="6.7667" dec_degrees="-20.7500" magnitude="6.3"/>
   <object name="Lyra Cluster" code="Messier 056" type="Cluster" ra_hours="19.2767" dec_degrees="30.1833" magnitude="8.3"/>
   <object name="M5 Cluster" code="Messier 005" type="Cluster" ra_hours="15.3092" dec_degrees="2.0808" magnitude="5.7"/>
-  <object name="Messier 012" code="Messier 012" type="Cluster" ra_hours="16.7872" dec_degrees="-1.9483" magnitude="6.6"/>
-  <object name="Messier 014" code="Messier 014" type="Cluster" ra_hours="17.6267" dec_degrees="-3.2458" magnitude="7.6"/>
   <object name="Omega Centauri" code="NGC 5139" type="Cluster" ra_hours="13.4467" dec_degrees="-47.4794" magnitude="3.7"/>
   <object name="Perseus Cluster" code="Messier 034" type="Cluster" ra_hours="2.7014" dec_degrees="42.7617" magnitude="5.5"/>
   <object name="Pinwheel Cluster" code="Messier 036" type="Cluster" ra_hours="5.6050" dec_degrees="34.1400" magnitude="6.3"/>
@@ -96,208 +86,30 @@
   <object name="Mizar" code="Mizar" type="Double Star" ra_hours="13.3990" dec_degrees="54.9253" magnitude="2.2"/>
   <object name="Andromeda Galaxy" code="Messier 031" type="Galaxy" ra_hours="0.7123" dec_degrees="41.2692" magnitude="3.4"/>
   <object name="Bodes Galaxy" code="Messier 081" type="Galaxy" ra_hours="9.9259" dec_degrees="69.0653" magnitude="6.9"/>
+  <object name="Camelopardalis Galaxy" code="NGC 2403" type="Galaxy" ra_hours="7.6142" dec_degrees="65.6025" magnitude="8.4"/>
   <object name="Cigar Galaxy" code="Messier 082" type="Galaxy" ra_hours="9.9312" dec_degrees="69.6797" magnitude="8.4"/>
   <object name="Crocus Galaxy" code="Messier 094" type="Galaxy" ra_hours="12.8481" dec_degrees="41.1200" magnitude="8.2"/>
   <object name="Needle Galaxy" code="Messier 106" type="Galaxy" ra_hours="12.3160" dec_degrees="47.3039" magnitude="8.4"/>
-  <object name="NGC 0253" code="NGC 0253" type="Galaxy" ra_hours="0.7925" dec_degrees="-25.2883" magnitude="7.9"/>
-  <object name="NGC 2403" code="NGC 2403" type="Galaxy" ra_hours="7.6142" dec_degrees="65.6025" magnitude="8.4"/>
-  <object name="NGC 2903" code="NGC 2903" type="Galaxy" ra_hours="9.5361" dec_degrees="21.5008" magnitude="9.0"/>
-  <object name="NGC 3000" code="NGC 3000" type="Galaxy" ra_hours="0.7500" dec_degrees="-40.0000" magnitude="6.2"/>
-  <object name="NGC 3001" code="NGC 3001" type="Galaxy" ra_hours="0.9630" dec_degrees="-37.2500" magnitude="6.5"/>
-  <object name="NGC 3002" code="NGC 3002" type="Galaxy" ra_hours="1.1760" dec_degrees="-34.5000" magnitude="6.8"/>
-  <object name="NGC 3003" code="NGC 3003" type="Galaxy" ra_hours="1.3890" dec_degrees="-31.7500" magnitude="7.1"/>
-  <object name="NGC 3004" code="NGC 3004" type="Galaxy" ra_hours="1.6020" dec_degrees="-29.0000" magnitude="7.4"/>
-  <object name="NGC 3005" code="NGC 3005" type="Galaxy" ra_hours="1.8150" dec_degrees="-26.2500" magnitude="7.7"/>
-  <object name="NGC 3006" code="NGC 3006" type="Galaxy" ra_hours="2.0280" dec_degrees="-23.5000" magnitude="8.0"/>
-  <object name="NGC 3007" code="NGC 3007" type="Galaxy" ra_hours="2.2410" dec_degrees="-20.7500" magnitude="8.3"/>
-  <object name="NGC 3008" code="NGC 3008" type="Galaxy" ra_hours="2.4540" dec_degrees="-18.0000" magnitude="8.6"/>
-  <object name="NGC 3009" code="NGC 3009" type="Galaxy" ra_hours="2.6670" dec_degrees="-15.2500" magnitude="8.9"/>
-  <object name="NGC 3010" code="NGC 3010" type="Galaxy" ra_hours="2.8800" dec_degrees="-12.5000" magnitude="9.2"/>
-  <object name="NGC 3011" code="NGC 3011" type="Galaxy" ra_hours="3.0930" dec_degrees="-9.7500" magnitude="9.5"/>
-  <object name="NGC 3012" code="NGC 3012" type="Galaxy" ra_hours="3.3060" dec_degrees="-7.0000" magnitude="6.2"/>
-  <object name="NGC 3013" code="NGC 3013" type="Galaxy" ra_hours="3.5190" dec_degrees="-4.2500" magnitude="6.5"/>
-  <object name="NGC 3014" code="NGC 3014" type="Galaxy" ra_hours="3.7320" dec_degrees="-1.5000" magnitude="6.8"/>
-  <object name="NGC 3015" code="NGC 3015" type="Galaxy" ra_hours="3.9450" dec_degrees="1.2500" magnitude="7.1"/>
-  <object name="NGC 3016" code="NGC 3016" type="Galaxy" ra_hours="4.1580" dec_degrees="4.0000" magnitude="7.4"/>
-  <object name="NGC 3017" code="NGC 3017" type="Galaxy" ra_hours="4.3710" dec_degrees="6.7500" magnitude="7.7"/>
-  <object name="NGC 3018" code="NGC 3018" type="Galaxy" ra_hours="4.5840" dec_degrees="9.5000" magnitude="8.0"/>
-  <object name="NGC 3019" code="NGC 3019" type="Galaxy" ra_hours="4.7970" dec_degrees="12.2500" magnitude="8.3"/>
-  <object name="NGC 3020" code="NGC 3020" type="Galaxy" ra_hours="5.0100" dec_degrees="15.0000" magnitude="8.6"/>
-  <object name="NGC 3021" code="NGC 3021" type="Galaxy" ra_hours="5.2230" dec_degrees="17.7500" magnitude="8.9"/>
-  <object name="NGC 3022" code="NGC 3022" type="Galaxy" ra_hours="5.4360" dec_degrees="20.5000" magnitude="9.2"/>
-  <object name="NGC 3023" code="NGC 3023" type="Galaxy" ra_hours="5.6490" dec_degrees="23.2500" magnitude="9.5"/>
-  <object name="NGC 3024" code="NGC 3024" type="Galaxy" ra_hours="5.8620" dec_degrees="26.0000" magnitude="6.2"/>
-  <object name="NGC 3025" code="NGC 3025" type="Galaxy" ra_hours="6.0750" dec_degrees="28.7500" magnitude="6.5"/>
-  <object name="NGC 3026" code="NGC 3026" type="Galaxy" ra_hours="6.2880" dec_degrees="31.5000" magnitude="6.8"/>
-  <object name="NGC 3027" code="NGC 3027" type="Galaxy" ra_hours="6.5010" dec_degrees="34.2500" magnitude="7.1"/>
-  <object name="NGC 3028" code="NGC 3028" type="Galaxy" ra_hours="6.7140" dec_degrees="37.0000" magnitude="7.4"/>
-  <object name="NGC 3029" code="NGC 3029" type="Galaxy" ra_hours="6.9270" dec_degrees="39.7500" magnitude="7.7"/>
-  <object name="NGC 3030" code="NGC 3030" type="Galaxy" ra_hours="7.1400" dec_degrees="-37.5000" magnitude="8.0"/>
-  <object name="NGC 3031" code="NGC 3031" type="Galaxy" ra_hours="7.3530" dec_degrees="-34.7500" magnitude="8.3"/>
-  <object name="NGC 3032" code="NGC 3032" type="Galaxy" ra_hours="7.5660" dec_degrees="-32.0000" magnitude="8.6"/>
-  <object name="NGC 3033" code="NGC 3033" type="Galaxy" ra_hours="7.7790" dec_degrees="-29.2500" magnitude="8.9"/>
-  <object name="NGC 3034" code="NGC 3034" type="Galaxy" ra_hours="7.9920" dec_degrees="-26.5000" magnitude="9.2"/>
-  <object name="NGC 3035" code="NGC 3035" type="Galaxy" ra_hours="8.2050" dec_degrees="-23.7500" magnitude="9.5"/>
-  <object name="NGC 3036" code="NGC 3036" type="Galaxy" ra_hours="8.4180" dec_degrees="-21.0000" magnitude="6.2"/>
-  <object name="NGC 3037" code="NGC 3037" type="Galaxy" ra_hours="8.6310" dec_degrees="-18.2500" magnitude="6.5"/>
-  <object name="NGC 3038" code="NGC 3038" type="Galaxy" ra_hours="8.8440" dec_degrees="-15.5000" magnitude="6.8"/>
-  <object name="NGC 3039" code="NGC 3039" type="Galaxy" ra_hours="9.0570" dec_degrees="-12.7500" magnitude="7.1"/>
-  <object name="NGC 3040" code="NGC 3040" type="Galaxy" ra_hours="9.2700" dec_degrees="-10.0000" magnitude="7.4"/>
-  <object name="NGC 3041" code="NGC 3041" type="Galaxy" ra_hours="9.4830" dec_degrees="-7.2500" magnitude="7.7"/>
-  <object name="NGC 3042" code="NGC 3042" type="Galaxy" ra_hours="9.6960" dec_degrees="-4.5000" magnitude="8.0"/>
-  <object name="NGC 3043" code="NGC 3043" type="Galaxy" ra_hours="9.9090" dec_degrees="-1.7500" magnitude="8.3"/>
-  <object name="NGC 3044" code="NGC 3044" type="Galaxy" ra_hours="10.1220" dec_degrees="1.0000" magnitude="8.6"/>
-  <object name="NGC 3045" code="NGC 3045" type="Galaxy" ra_hours="10.3350" dec_degrees="3.7500" magnitude="8.9"/>
-  <object name="NGC 3046" code="NGC 3046" type="Galaxy" ra_hours="10.5480" dec_degrees="6.5000" magnitude="9.2"/>
-  <object name="NGC 3047" code="NGC 3047" type="Galaxy" ra_hours="10.7610" dec_degrees="9.2500" magnitude="9.5"/>
-  <object name="NGC 3048" code="NGC 3048" type="Galaxy" ra_hours="10.9740" dec_degrees="12.0000" magnitude="6.2"/>
-  <object name="NGC 3049" code="NGC 3049" type="Galaxy" ra_hours="11.1870" dec_degrees="14.7500" magnitude="6.5"/>
-  <object name="NGC 3050" code="NGC 3050" type="Galaxy" ra_hours="11.4000" dec_degrees="17.5000" magnitude="6.8"/>
-  <object name="NGC 3051" code="NGC 3051" type="Galaxy" ra_hours="11.6130" dec_degrees="20.2500" magnitude="7.1"/>
-  <object name="NGC 3052" code="NGC 3052" type="Galaxy" ra_hours="11.8260" dec_degrees="23.0000" magnitude="7.4"/>
-  <object name="NGC 3053" code="NGC 3053" type="Galaxy" ra_hours="12.0390" dec_degrees="25.7500" magnitude="7.7"/>
-  <object name="NGC 3054" code="NGC 3054" type="Galaxy" ra_hours="12.2520" dec_degrees="28.5000" magnitude="8.0"/>
-  <object name="NGC 3055" code="NGC 3055" type="Galaxy" ra_hours="12.4650" dec_degrees="31.2500" magnitude="8.3"/>
-  <object name="NGC 3056" code="NGC 3056" type="Galaxy" ra_hours="12.6780" dec_degrees="34.0000" magnitude="8.6"/>
-  <object name="NGC 3057" code="NGC 3057" type="Galaxy" ra_hours="12.8910" dec_degrees="36.7500" magnitude="8.9"/>
-  <object name="NGC 3058" code="NGC 3058" type="Galaxy" ra_hours="13.1040" dec_degrees="39.5000" magnitude="9.2"/>
-  <object name="NGC 3059" code="NGC 3059" type="Galaxy" ra_hours="13.3170" dec_degrees="-37.7500" magnitude="9.5"/>
-  <object name="NGC 3060" code="NGC 3060" type="Galaxy" ra_hours="13.5300" dec_degrees="-35.0000" magnitude="6.2"/>
-  <object name="NGC 3061" code="NGC 3061" type="Galaxy" ra_hours="13.7430" dec_degrees="-32.2500" magnitude="6.5"/>
-  <object name="NGC 3062" code="NGC 3062" type="Galaxy" ra_hours="13.9560" dec_degrees="-29.5000" magnitude="6.8"/>
-  <object name="NGC 3063" code="NGC 3063" type="Galaxy" ra_hours="14.1690" dec_degrees="-26.7500" magnitude="7.1"/>
-  <object name="NGC 3064" code="NGC 3064" type="Galaxy" ra_hours="14.3820" dec_degrees="-24.0000" magnitude="7.4"/>
-  <object name="NGC 3065" code="NGC 3065" type="Galaxy" ra_hours="14.5950" dec_degrees="-21.2500" magnitude="7.7"/>
-  <object name="NGC 3066" code="NGC 3066" type="Galaxy" ra_hours="14.8080" dec_degrees="-18.5000" magnitude="8.0"/>
-  <object name="NGC 3067" code="NGC 3067" type="Galaxy" ra_hours="15.0210" dec_degrees="-15.7500" magnitude="8.3"/>
-  <object name="NGC 3068" code="NGC 3068" type="Galaxy" ra_hours="15.2340" dec_degrees="-13.0000" magnitude="8.6"/>
-  <object name="NGC 3069" code="NGC 3069" type="Galaxy" ra_hours="15.4470" dec_degrees="-10.2500" magnitude="8.9"/>
-  <object name="NGC 3070" code="NGC 3070" type="Galaxy" ra_hours="15.6600" dec_degrees="-7.5000" magnitude="9.2"/>
-  <object name="NGC 3071" code="NGC 3071" type="Galaxy" ra_hours="15.8730" dec_degrees="-4.7500" magnitude="9.5"/>
-  <object name="NGC 3072" code="NGC 3072" type="Galaxy" ra_hours="16.0860" dec_degrees="-2.0000" magnitude="6.2"/>
-  <object name="NGC 3073" code="NGC 3073" type="Galaxy" ra_hours="16.2990" dec_degrees="0.7500" magnitude="6.5"/>
-  <object name="NGC 3074" code="NGC 3074" type="Galaxy" ra_hours="16.5120" dec_degrees="3.5000" magnitude="6.8"/>
-  <object name="NGC 3075" code="NGC 3075" type="Galaxy" ra_hours="16.7250" dec_degrees="6.2500" magnitude="7.1"/>
-  <object name="NGC 3076" code="NGC 3076" type="Galaxy" ra_hours="16.9380" dec_degrees="9.0000" magnitude="7.4"/>
-  <object name="NGC 3077" code="NGC 3077" type="Galaxy" ra_hours="17.1510" dec_degrees="11.7500" magnitude="7.7"/>
-  <object name="NGC 3078" code="NGC 3078" type="Galaxy" ra_hours="17.3640" dec_degrees="14.5000" magnitude="8.0"/>
-  <object name="NGC 3079" code="NGC 3079" type="Galaxy" ra_hours="17.5770" dec_degrees="17.2500" magnitude="8.3"/>
-  <object name="NGC 3080" code="NGC 3080" type="Galaxy" ra_hours="17.7900" dec_degrees="20.0000" magnitude="8.6"/>
-  <object name="NGC 3081" code="NGC 3081" type="Galaxy" ra_hours="18.0030" dec_degrees="22.7500" magnitude="8.9"/>
-  <object name="NGC 3082" code="NGC 3082" type="Galaxy" ra_hours="18.2160" dec_degrees="25.5000" magnitude="9.2"/>
-  <object name="NGC 3083" code="NGC 3083" type="Galaxy" ra_hours="18.4290" dec_degrees="28.2500" magnitude="9.5"/>
-  <object name="NGC 3084" code="NGC 3084" type="Galaxy" ra_hours="18.6420" dec_degrees="31.0000" magnitude="6.2"/>
-  <object name="NGC 3085" code="NGC 3085" type="Galaxy" ra_hours="18.8550" dec_degrees="33.7500" magnitude="6.5"/>
-  <object name="NGC 3086" code="NGC 3086" type="Galaxy" ra_hours="19.0680" dec_degrees="36.5000" magnitude="6.8"/>
-  <object name="NGC 3087" code="NGC 3087" type="Galaxy" ra_hours="19.2810" dec_degrees="39.2500" magnitude="7.1"/>
-  <object name="NGC 3088" code="NGC 3088" type="Galaxy" ra_hours="19.4940" dec_degrees="-38.0000" magnitude="7.4"/>
-  <object name="NGC 3089" code="NGC 3089" type="Galaxy" ra_hours="19.7070" dec_degrees="-35.2500" magnitude="7.7"/>
-  <object name="NGC 3090" code="NGC 3090" type="Galaxy" ra_hours="19.9200" dec_degrees="-32.5000" magnitude="8.0"/>
-  <object name="NGC 3091" code="NGC 3091" type="Galaxy" ra_hours="20.1330" dec_degrees="-29.7500" magnitude="8.3"/>
-  <object name="NGC 3092" code="NGC 3092" type="Galaxy" ra_hours="20.3460" dec_degrees="-27.0000" magnitude="8.6"/>
-  <object name="NGC 3093" code="NGC 3093" type="Galaxy" ra_hours="20.5590" dec_degrees="-24.2500" magnitude="8.9"/>
-  <object name="NGC 3094" code="NGC 3094" type="Galaxy" ra_hours="20.7720" dec_degrees="-21.5000" magnitude="9.2"/>
-  <object name="NGC 3095" code="NGC 3095" type="Galaxy" ra_hours="20.9850" dec_degrees="-18.7500" magnitude="9.5"/>
-  <object name="NGC 3096" code="NGC 3096" type="Galaxy" ra_hours="21.1980" dec_degrees="-16.0000" magnitude="6.2"/>
-  <object name="NGC 3097" code="NGC 3097" type="Galaxy" ra_hours="21.4110" dec_degrees="-13.2500" magnitude="6.5"/>
-  <object name="NGC 3098" code="NGC 3098" type="Galaxy" ra_hours="21.6240" dec_degrees="-10.5000" magnitude="6.8"/>
-  <object name="NGC 3099" code="NGC 3099" type="Galaxy" ra_hours="21.8370" dec_degrees="-7.7500" magnitude="7.1"/>
-  <object name="NGC 3100" code="NGC 3100" type="Galaxy" ra_hours="22.0500" dec_degrees="-5.0000" magnitude="7.4"/>
-  <object name="NGC 3101" code="NGC 3101" type="Galaxy" ra_hours="22.2630" dec_degrees="-2.2500" magnitude="7.7"/>
-  <object name="NGC 3102" code="NGC 3102" type="Galaxy" ra_hours="22.4760" dec_degrees="0.5000" magnitude="8.0"/>
-  <object name="NGC 3103" code="NGC 3103" type="Galaxy" ra_hours="22.6890" dec_degrees="3.2500" magnitude="8.3"/>
-  <object name="NGC 3104" code="NGC 3104" type="Galaxy" ra_hours="22.9020" dec_degrees="6.0000" magnitude="8.6"/>
-  <object name="NGC 3105" code="NGC 3105" type="Galaxy" ra_hours="23.1150" dec_degrees="8.7500" magnitude="8.9"/>
-  <object name="NGC 3106" code="NGC 3106" type="Galaxy" ra_hours="23.3280" dec_degrees="11.5000" magnitude="9.2"/>
-  <object name="NGC 3107" code="NGC 3107" type="Galaxy" ra_hours="23.5410" dec_degrees="14.2500" magnitude="9.5"/>
-  <object name="NGC 3108" code="NGC 3108" type="Galaxy" ra_hours="23.7540" dec_degrees="17.0000" magnitude="6.2"/>
-  <object name="NGC 3109" code="NGC 3109" type="Galaxy" ra_hours="23.9670" dec_degrees="19.7500" magnitude="6.5"/>
-  <object name="NGC 3110" code="NGC 3110" type="Galaxy" ra_hours="0.1800" dec_degrees="22.5000" magnitude="6.8"/>
-  <object name="NGC 3111" code="NGC 3111" type="Galaxy" ra_hours="0.3930" dec_degrees="25.2500" magnitude="7.1"/>
-  <object name="NGC 3112" code="NGC 3112" type="Galaxy" ra_hours="0.6060" dec_degrees="28.0000" magnitude="7.4"/>
-  <object name="NGC 3113" code="NGC 3113" type="Galaxy" ra_hours="0.8190" dec_degrees="30.7500" magnitude="7.7"/>
-  <object name="NGC 3114" code="NGC 3114" type="Galaxy" ra_hours="1.0320" dec_degrees="33.5000" magnitude="8.0"/>
-  <object name="NGC 3115" code="NGC 3115" type="Galaxy" ra_hours="1.2450" dec_degrees="36.2500" magnitude="8.3"/>
-  <object name="NGC 3116" code="NGC 3116" type="Galaxy" ra_hours="1.4580" dec_degrees="39.0000" magnitude="8.6"/>
-  <object name="NGC 3117" code="NGC 3117" type="Galaxy" ra_hours="1.6710" dec_degrees="-38.2500" magnitude="8.9"/>
-  <object name="NGC 3118" code="NGC 3118" type="Galaxy" ra_hours="1.8840" dec_degrees="-35.5000" magnitude="9.2"/>
-  <object name="NGC 3119" code="NGC 3119" type="Galaxy" ra_hours="2.0970" dec_degrees="-32.7500" magnitude="9.5"/>
-  <object name="NGC 3120" code="NGC 3120" type="Galaxy" ra_hours="2.3100" dec_degrees="-30.0000" magnitude="6.2"/>
-  <object name="NGC 3121" code="NGC 3121" type="Galaxy" ra_hours="2.5230" dec_degrees="-27.2500" magnitude="6.5"/>
-  <object name="NGC 3122" code="NGC 3122" type="Galaxy" ra_hours="2.7360" dec_degrees="-24.5000" magnitude="6.8"/>
-  <object name="NGC 3123" code="NGC 3123" type="Galaxy" ra_hours="2.9490" dec_degrees="-21.7500" magnitude="7.1"/>
-  <object name="NGC 3124" code="NGC 3124" type="Galaxy" ra_hours="3.1620" dec_degrees="-19.0000" magnitude="7.4"/>
-  <object name="NGC 3125" code="NGC 3125" type="Galaxy" ra_hours="3.3750" dec_degrees="-16.2500" magnitude="7.7"/>
-  <object name="NGC 3126" code="NGC 3126" type="Galaxy" ra_hours="3.5880" dec_degrees="-13.5000" magnitude="8.0"/>
-  <object name="NGC 3127" code="NGC 3127" type="Galaxy" ra_hours="3.8010" dec_degrees="-10.7500" magnitude="8.3"/>
-  <object name="NGC 3128" code="NGC 3128" type="Galaxy" ra_hours="4.0140" dec_degrees="-8.0000" magnitude="8.6"/>
-  <object name="NGC 3129" code="NGC 3129" type="Galaxy" ra_hours="4.2270" dec_degrees="-5.2500" magnitude="8.9"/>
-  <object name="NGC 3130" code="NGC 3130" type="Galaxy" ra_hours="4.4400" dec_degrees="-2.5000" magnitude="9.2"/>
-  <object name="NGC 3131" code="NGC 3131" type="Galaxy" ra_hours="4.6530" dec_degrees="0.2500" magnitude="9.5"/>
-  <object name="NGC 3132" code="NGC 3132" type="Galaxy" ra_hours="4.8660" dec_degrees="3.0000" magnitude="6.2"/>
-  <object name="NGC 3133" code="NGC 3133" type="Galaxy" ra_hours="5.0790" dec_degrees="5.7500" magnitude="6.5"/>
-  <object name="NGC 3134" code="NGC 3134" type="Galaxy" ra_hours="5.2920" dec_degrees="8.5000" magnitude="6.8"/>
-  <object name="NGC 3135" code="NGC 3135" type="Galaxy" ra_hours="5.5050" dec_degrees="11.2500" magnitude="7.1"/>
-  <object name="NGC 3136" code="NGC 3136" type="Galaxy" ra_hours="5.7180" dec_degrees="14.0000" magnitude="7.4"/>
-  <object name="NGC 3137" code="NGC 3137" type="Galaxy" ra_hours="5.9310" dec_degrees="16.7500" magnitude="7.7"/>
-  <object name="NGC 3138" code="NGC 3138" type="Galaxy" ra_hours="6.1440" dec_degrees="19.5000" magnitude="8.0"/>
-  <object name="NGC 3139" code="NGC 3139" type="Galaxy" ra_hours="6.3570" dec_degrees="22.2500" magnitude="8.3"/>
-  <object name="NGC 3140" code="NGC 3140" type="Galaxy" ra_hours="6.5700" dec_degrees="25.0000" magnitude="8.6"/>
-  <object name="NGC 3141" code="NGC 3141" type="Galaxy" ra_hours="6.7830" dec_degrees="27.7500" magnitude="8.9"/>
-  <object name="NGC 3142" code="NGC 3142" type="Galaxy" ra_hours="6.9960" dec_degrees="30.5000" magnitude="9.2"/>
-  <object name="NGC 3143" code="NGC 3143" type="Galaxy" ra_hours="7.2090" dec_degrees="33.2500" magnitude="9.5"/>
-  <object name="NGC 3144" code="NGC 3144" type="Galaxy" ra_hours="7.4220" dec_degrees="36.0000" magnitude="6.2"/>
-  <object name="NGC 3145" code="NGC 3145" type="Galaxy" ra_hours="7.6350" dec_degrees="38.7500" magnitude="6.5"/>
-  <object name="NGC 3146" code="NGC 3146" type="Galaxy" ra_hours="7.8480" dec_degrees="-38.5000" magnitude="6.8"/>
-  <object name="NGC 3147" code="NGC 3147" type="Galaxy" ra_hours="8.0610" dec_degrees="-35.7500" magnitude="7.1"/>
-  <object name="NGC 3148" code="NGC 3148" type="Galaxy" ra_hours="8.2740" dec_degrees="-33.0000" magnitude="7.4"/>
-  <object name="NGC 3149" code="NGC 3149" type="Galaxy" ra_hours="8.4870" dec_degrees="-30.2500" magnitude="7.7"/>
-  <object name="NGC 3150" code="NGC 3150" type="Galaxy" ra_hours="8.7000" dec_degrees="-27.5000" magnitude="8.0"/>
-  <object name="NGC 3151" code="NGC 3151" type="Galaxy" ra_hours="8.9130" dec_degrees="-24.7500" magnitude="8.3"/>
-  <object name="NGC 3152" code="NGC 3152" type="Galaxy" ra_hours="9.1260" dec_degrees="-22.0000" magnitude="8.6"/>
-  <object name="NGC 3153" code="NGC 3153" type="Galaxy" ra_hours="9.3390" dec_degrees="-19.2500" magnitude="8.9"/>
-  <object name="NGC 3154" code="NGC 3154" type="Galaxy" ra_hours="9.5520" dec_degrees="-16.5000" magnitude="9.2"/>
-  <object name="NGC 3155" code="NGC 3155" type="Galaxy" ra_hours="9.7650" dec_degrees="-13.7500" magnitude="9.5"/>
-  <object name="NGC 3156" code="NGC 3156" type="Galaxy" ra_hours="9.9780" dec_degrees="-11.0000" magnitude="6.2"/>
-  <object name="NGC 3157" code="NGC 3157" type="Galaxy" ra_hours="10.1910" dec_degrees="-8.2500" magnitude="6.5"/>
-  <object name="NGC 3158" code="NGC 3158" type="Galaxy" ra_hours="10.4040" dec_degrees="-5.5000" magnitude="6.8"/>
-  <object name="NGC 3159" code="NGC 3159" type="Galaxy" ra_hours="10.6170" dec_degrees="-2.7500" magnitude="7.1"/>
-  <object name="NGC 3160" code="NGC 3160" type="Galaxy" ra_hours="10.8300" dec_degrees="0.0000" magnitude="7.4"/>
-  <object name="NGC 3161" code="NGC 3161" type="Galaxy" ra_hours="11.0430" dec_degrees="2.7500" magnitude="7.7"/>
-  <object name="NGC 3162" code="NGC 3162" type="Galaxy" ra_hours="11.2560" dec_degrees="5.5000" magnitude="8.0"/>
-  <object name="NGC 3163" code="NGC 3163" type="Galaxy" ra_hours="11.4690" dec_degrees="8.2500" magnitude="8.3"/>
-  <object name="NGC 3164" code="NGC 3164" type="Galaxy" ra_hours="11.6820" dec_degrees="11.0000" magnitude="8.6"/>
-  <object name="NGC 3165" code="NGC 3165" type="Galaxy" ra_hours="11.8950" dec_degrees="13.7500" magnitude="8.9"/>
-  <object name="NGC 3166" code="NGC 3166" type="Galaxy" ra_hours="12.1080" dec_degrees="16.5000" magnitude="9.2"/>
-  <object name="NGC 3167" code="NGC 3167" type="Galaxy" ra_hours="12.3210" dec_degrees="19.2500" magnitude="9.5"/>
-  <object name="NGC 3168" code="NGC 3168" type="Galaxy" ra_hours="12.5340" dec_degrees="22.0000" magnitude="6.2"/>
-  <object name="NGC 3169" code="NGC 3169" type="Galaxy" ra_hours="12.7470" dec_degrees="24.7500" magnitude="6.5"/>
-  <object name="NGC 3170" code="NGC 3170" type="Galaxy" ra_hours="12.9600" dec_degrees="27.5000" magnitude="6.8"/>
-  <object name="NGC 5128" code="NGC 5128" type="Galaxy" ra_hours="13.4246" dec_degrees="-43.0192" magnitude="6.8"/>
-  <object name="NGC 6744" code="NGC 6744" type="Galaxy" ra_hours="19.1628" dec_degrees="-63.8575" magnitude="8.4"/>
   <object name="Phantom Galaxy" code="Messier 074" type="Galaxy" ra_hours="1.6116" dec_degrees="15.7833" magnitude="9.4"/>
   <object name="Pinwheel Galaxy" code="Messier 101" type="Galaxy" ra_hours="14.0535" dec_degrees="54.3492" magnitude="7.9"/>
+  <object name="Silver Coin Galaxy" code="NGC 0253" type="Galaxy" ra_hours="0.7925" dec_degrees="-25.2883" magnitude="7.9"/>
   <object name="Sombrero Galaxy" code="Messier 104" type="Galaxy" ra_hours="12.6665" dec_degrees="-11.6231" magnitude="8.0"/>
   <object name="Southern Pinwheel" code="Messier 083" type="Galaxy" ra_hours="13.6169" dec_degrees="-29.8656" magnitude="8.2"/>
+  <object name="Spiral Galaxy NGC 2903" code="NGC 2903" type="Galaxy" ra_hours="9.5361" dec_degrees="21.5008" magnitude="9.0"/>
   <object name="Sunflower Galaxy" code="Messier 063" type="Galaxy" ra_hours="13.2637" dec_degrees="42.0292" magnitude="8.6"/>
   <object name="Triangulum Galaxy" code="Messier 033" type="Galaxy" ra_hours="1.5641" dec_degrees="30.6603" magnitude="5.7"/>
   <object name="Vacuum Cleaner Galaxy" code="Messier 109" type="Galaxy" ra_hours="11.9600" dec_degrees="53.3747" magnitude="9.8"/>
   <object name="Virgo A" code="Messier 087" type="Galaxy" ra_hours="12.5137" dec_degrees="12.3911" magnitude="8.6"/>
   <object name="Whirlpool Galaxy" code="Messier 051" type="Galaxy" ra_hours="13.4980" dec_degrees="47.1953" magnitude="8.4"/>
-  <object name="Messier 008" code="Messier 008" type="Nebula" ra_hours="18.0603" dec_degrees="-24.3825" magnitude="6.0"/>
-  <object name="Messier 016" code="Messier 016" type="Nebula" ra_hours="18.3133" dec_degrees="-13.8067" magnitude="6.0"/>
-  <object name="Messier 017" code="Messier 017" type="Nebula" ra_hours="18.3464" dec_degrees="-16.1722" magnitude="6.0"/>
-  <object name="Messier 020" code="Messier 020" type="Nebula" ra_hours="18.0450" dec_degrees="-22.9717" magnitude="6.3"/>
-  <object name="Messier 042" code="Messier 042" type="Nebula" ra_hours="5.5881" dec_degrees="-5.3911" magnitude="4.0"/>
-  <object name="Messier 043" code="Messier 043" type="Nebula" ra_hours="5.5919" dec_degrees="-5.2667" magnitude="9.0"/>
-  <object name="Messier 078" code="Messier 078" type="Nebula" ra_hours="5.7794" dec_degrees="0.0500" magnitude="8.0"/>
-  <object name="NGC 3372" code="NGC 3372" type="Nebula" ra_hours="10.7523" dec_degrees="-59.8778" magnitude="1.0"/>
-  <object name="NGC 7000" code="NGC 7000" type="Nebula" ra_hours="20.9817" dec_degrees="44.3167" magnitude="4.0"/>
-  <object name="Messier 027" code="Messier 027" type="Planetary Nebula" ra_hours="19.9933" dec_degrees="22.7211" magnitude="7.5"/>
-  <object name="Messier 057" code="Messier 057" type="Planetary Nebula" ra_hours="18.8931" dec_degrees="33.0292" magnitude="8.8"/>
-  <object name="Messier 076" code="Messier 076" type="Planetary Nebula" ra_hours="1.7053" dec_degrees="51.5753" magnitude="10.1"/>
-  <object name="Messier 097" code="Messier 097" type="Planetary Nebula" ra_hours="11.2467" dec_degrees="55.0167" magnitude="9.9"/>
-  <object name="NGC 7009" code="NGC 7009" type="Planetary Nebula" ra_hours="21.0697" dec_degrees="-11.3633" magnitude="8.0"/>
-  <object name="NGC 7027" code="NGC 7027" type="Planetary Nebula" ra_hours="21.1171" dec_degrees="42.2361" magnitude="8.5"/>
-  <object name="NGC 7293" code="NGC 7293" type="Planetary Nebula" ra_hours="22.4940" dec_degrees="-20.8372" magnitude="7.3"/>
+  <object name="Casper the Friendly Ghost" code="Messier 078" type="Nebula" ra_hours="5.7794" dec_degrees="0.0500" magnitude="8.0"/>
+  <object name="De Mairan's Nebula" code="Messier 043" type="Nebula" ra_hours="5.5919" dec_degrees="-5.2667" magnitude="9.0"/>
+  <object name="Eagle Nebula" code="Messier 016" type="Nebula" ra_hours="18.3133" dec_degrees="-13.8067" magnitude="6.0"/>
+  <object name="Lagoon Nebula" code="Messier 008" type="Nebula" ra_hours="18.0603" dec_degrees="-24.3825" magnitude="6.0"/>
+  <object name="Omega Nebula" code="Messier 017" type="Nebula" ra_hours="18.3464" dec_degrees="-16.1722" magnitude="6.0"/>
+  <object name="Orion Nebula" code="Messier 042" type="Nebula" ra_hours="5.5881" dec_degrees="-5.3911" magnitude="4.0"/>
+  <object name="Trifid Nebula" code="Messier 020" type="Nebula" ra_hours="18.0450" dec_degrees="-22.9717" magnitude="6.3"/>
+  <object name="Dumbbell Nebula" code="Messier 027" type="Planetary Nebula" ra_hours="19.9933" dec_degrees="22.7211" magnitude="7.5"/>
+  <object name="Little Dumbbell Nebula" code="Messier 076" type="Planetary Nebula" ra_hours="1.7053" dec_degrees="51.5753" magnitude="10.1"/>
+  <object name="Owl Nebula" code="Messier 097" type="Planetary Nebula" ra_hours="11.2467" dec_degrees="55.0167" magnitude="9.9"/>
+  <object name="Ring Nebula" code="Messier 057" type="Planetary Nebula" ra_hours="18.8931" dec_degrees="33.0292" magnitude="8.8"/>
 </catalog>

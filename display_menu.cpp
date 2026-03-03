@@ -299,6 +299,14 @@ GotoRuntimeState gotoRuntime{false,
 
 TrackingState tracking{false, 0.0, 0.0, -1, 0.0, 0.0, false};
 
+struct TrackingMotionState {
+  double azRateDegPerSec;
+  double altRateDegPerSec;
+  uint32_t lastUpdateMs;
+};
+
+TrackingMotionState trackingMotion{0.0, 0.0, 0};
+
 enum class SpeedEditMode { Goto, Panning };
 
 struct SpeedProfileState {
@@ -1128,9 +1136,21 @@ void getObjectRaDecAt(const CatalogObject& object,
     *futureTime = future;
   }
 
+  if (object.type.equalsIgnoreCase("moon") && planets::moonFromString(object.name)) {
+    DateTime futureUtc = toUtc(future);
+    float jd = static_cast<float>(planets::julianDay(
+        futureUtc.year(), futureUtc.month(), futureUtc.day(),
+        hourFraction(futureUtc) + fractional / 3600.0));
+    PlanetPosition position;
+    if (planets::computeMoon(jd, position)) {
+      raHours = position.raHours;
+      decDegrees = position.decDegrees;
+    }
+    return;
+  }
+
   PlanetId planetId;
-  if (object.type.equalsIgnoreCase("planet") &&
-      planets::planetFromString(object.name, planetId)) {
+  if (object.type.equalsIgnoreCase("planet") && planets::planetFromString(object.name, planetId)) {
     DateTime futureUtc = toUtc(future);
     float jd = static_cast<float>(planets::julianDay(
         futureUtc.year(), futureUtc.month(), futureUtc.day(),
@@ -3123,14 +3143,55 @@ void abortGoto() {
 }
 
 void updateTracking() {
-  if (gotoRuntime.active || systemState.gotoActive) {
+  auto resetTrackingMotion = []() {
+    trackingMotion.azRateDegPerSec = 0.0;
+    trackingMotion.altRateDegPerSec = 0.0;
+    trackingMotion.lastUpdateMs = millis();
     motion::setTrackingRates(0.0, 0.0);
+  };
+
+  auto applyTrackingRates = [](double targetAzRateDegPerSec, double targetAltRateDegPerSec) {
+    constexpr double kTrackingAccelerationLimit = 1.5;
+    constexpr double kTrackingDeadbandDegPerSec = 0.01;
+
+    uint32_t nowMs = millis();
+    double dt = 0.0;
+    if (trackingMotion.lastUpdateMs != 0 && nowMs >= trackingMotion.lastUpdateMs) {
+      dt = static_cast<double>(nowMs - trackingMotion.lastUpdateMs) / 1000.0;
+    }
+    trackingMotion.lastUpdateMs = nowMs;
+
+    auto ramp = [dt](double current, double target) {
+      if (dt <= 0.0) {
+        return target;
+      }
+      double maxDelta = kTrackingAccelerationLimit * dt;
+      return current + std::clamp(target - current, -maxDelta, maxDelta);
+    };
+
+    trackingMotion.azRateDegPerSec = ramp(trackingMotion.azRateDegPerSec, targetAzRateDegPerSec);
+    trackingMotion.altRateDegPerSec = ramp(trackingMotion.altRateDegPerSec, targetAltRateDegPerSec);
+
+    if (std::fabs(targetAzRateDegPerSec) < kTrackingDeadbandDegPerSec &&
+        std::fabs(trackingMotion.azRateDegPerSec) < kTrackingDeadbandDegPerSec) {
+      trackingMotion.azRateDegPerSec = 0.0;
+    }
+    if (std::fabs(targetAltRateDegPerSec) < kTrackingDeadbandDegPerSec &&
+        std::fabs(trackingMotion.altRateDegPerSec) < kTrackingDeadbandDegPerSec) {
+      trackingMotion.altRateDegPerSec = 0.0;
+    }
+
+    motion::setTrackingRates(trackingMotion.azRateDegPerSec, trackingMotion.altRateDegPerSec);
+  };
+
+  if (gotoRuntime.active || systemState.gotoActive) {
+    resetTrackingMotion();
     motion::setTrackingEnabled(false);
     return;
   }
 
   if (!tracking.active) {
-    motion::setTrackingRates(0.0, 0.0);
+    resetTrackingMotion();
     motion::setTrackingEnabled(false);
     systemState.trackingActive = false;
     return;
@@ -3150,7 +3211,7 @@ void updateTracking() {
   double azDeg = 0.0;
   double altDeg = 0.0;
   if (!raDecToAltAz(now, ra, dec, azDeg, altDeg)) {
-    motion::setTrackingRates(0.0, 0.0);
+    resetTrackingMotion();
     systemState.trackingActive = false;
     return;
   }
@@ -3174,7 +3235,7 @@ void updateTracking() {
 
   if (tracking.userAdjusting) {
     if (joystickActive || manualMotionActive) {
-      motion::setTrackingRates(0.0, 0.0);
+      resetTrackingMotion();
       motion::setTrackingEnabled(false);
       systemState.trackingActive = true;
       return;
@@ -3198,7 +3259,7 @@ void updateTracking() {
   double azRate = std::clamp(errorAz * kTrackingGain, -kMaxTrackingSpeed, kMaxTrackingSpeed);
   double altRate = std::clamp(errorAlt * kTrackingGain, -kMaxTrackingSpeed, kMaxTrackingSpeed);
 
-  motion::setTrackingRates(azRate, altRate);
+  applyTrackingRates(azRate, altRate);
   motion::setTrackingEnabled(true);
   systemState.trackingActive = true;
 }
