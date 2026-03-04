@@ -375,7 +375,7 @@ int64_t flipAzOffsetSteps = 0;
 int mainMenuIndex = 0;
 int mainMenuScroll = 0;
 constexpr const char* kMainMenuItems[] = {"Status",
-                                          "Polar Align",
+                                          "Homing",
                                           "Start Tracking",
                                           "Stop Tracking",
                                           "Catalog",
@@ -389,8 +389,8 @@ constexpr size_t kMainMenuCount = sizeof(kMainMenuItems) / sizeof(kMainMenuItems
 int polarAlignMenuIndex = 0;
 int polarAlignMenuScroll = 0;
 constexpr const char* kPolarAlignMenuItems[] = {"Lock Polaris",
-                                                "Refine Alignment",
-                                                "Clear Refinements",
+                                                "Lock Home Stars",
+                                                "Clear Star Locks",
                                                 "Back"};
 constexpr size_t kPolarAlignMenuCount =
     sizeof(kPolarAlignMenuItems) / sizeof(kPolarAlignMenuItems[0]);
@@ -430,11 +430,8 @@ int catalogDetailMenuIndex = 0;
 bool catalogDetailSelectingAction = false;
 constexpr int kCatalogDetailMenuCount = 2;
 
-constexpr const char* kLockingStarCandidates[] = {"Dubhe",     "Alioth",   "Arcturus",
-                                                  "Vega",      "Altair",   "Deneb",
-                                                  "Capella",   "Betelgeuse", "Rigel",
-                                                  "Aldebaran", "Spica",    "Regulus",
-                                                  "Procyon",   "Sirius",   "Fomalhaut"};
+constexpr const char* kLockingStarCandidates[] = {"Dubhe",   "Alioth", "Arcturus", "Vega",
+                                                  "Deneb",   "Capella", "Aldebaran", "Regulus"};
 constexpr size_t kLockingStarCandidateCount =
     sizeof(kLockingStarCandidates) / sizeof(kLockingStarCandidates[0]);
 
@@ -460,6 +457,22 @@ double lockingStarPendingDecDegrees = 0.0;
 int lockingStarPendingCatalogIndex = -1;
 String lockingStarPendingName;
 bool lockingStarReturnToPolarMenu = false;
+bool lockingStarHasPrimaryLock = false;
+
+struct LockingStarAggregate {
+  int catalogIndex;
+  String name;
+  int count;
+  double expectedAzSin;
+  double expectedAzCos;
+  double measuredAzSin;
+  double measuredAzCos;
+  double expectedAltSum;
+  double measuredAltSum;
+};
+
+LockingStarAggregate lockingStarAggregates[kMaxLockingStarOptions];
+size_t lockingStarAggregateCount = 0;
 
 String infoMessage;
 uint32_t infoUntil = 0;
@@ -955,6 +968,82 @@ void resetLockingStarFlow() {
   lockingStarSelectionIndex = 0;
   lockingStarScroll = 0;
   lockingStarReturnToPolarMenu = false;
+  lockingStarHasPrimaryLock = false;
+  lockingStarAggregateCount = 0;
+}
+
+void clearLockingStarAggregates() {
+  lockingStarAggregateCount = 0;
+}
+
+LockingStarAggregate* findLockingStarAggregate(int catalogIndex) {
+  for (size_t i = 0; i < lockingStarAggregateCount; ++i) {
+    if (lockingStarAggregates[i].catalogIndex == catalogIndex) {
+      return &lockingStarAggregates[i];
+    }
+  }
+  return nullptr;
+}
+
+LockingStarAggregate* createLockingStarAggregate(int catalogIndex, const String& name) {
+  if (lockingStarAggregateCount >= kMaxLockingStarOptions) {
+    return nullptr;
+  }
+  LockingStarAggregate& aggregate = lockingStarAggregates[lockingStarAggregateCount++];
+  aggregate.catalogIndex = catalogIndex;
+  aggregate.name = name;
+  aggregate.count = 0;
+  aggregate.expectedAzSin = 0.0;
+  aggregate.expectedAzCos = 0.0;
+  aggregate.measuredAzSin = 0.0;
+  aggregate.measuredAzCos = 0.0;
+  aggregate.expectedAltSum = 0.0;
+  aggregate.measuredAltSum = 0.0;
+  return &aggregate;
+}
+
+void addLockingStarObservation(int catalogIndex,
+                               const String& name,
+                               double expectedAz,
+                               double expectedAlt,
+                               double measuredAz,
+                               double measuredAlt) {
+  LockingStarAggregate* aggregate = findLockingStarAggregate(catalogIndex);
+  if (!aggregate) {
+    aggregate = createLockingStarAggregate(catalogIndex, name);
+  }
+  if (!aggregate) {
+    return;
+  }
+  aggregate->count += 1;
+  double expectedAzRad = degToRad(expectedAz);
+  double measuredAzRad = degToRad(measuredAz);
+  aggregate->expectedAzSin += sin(expectedAzRad);
+  aggregate->expectedAzCos += cos(expectedAzRad);
+  aggregate->measuredAzSin += sin(measuredAzRad);
+  aggregate->measuredAzCos += cos(measuredAzRad);
+  aggregate->expectedAltSum += expectedAlt;
+  aggregate->measuredAltSum += measuredAlt;
+}
+
+void rebuildOrientationModelFromLocks() {
+  orientationModel.reset();
+  storage::clearOrientationModel();
+
+  for (size_t i = 0; i < lockingStarAggregateCount; ++i) {
+    const LockingStarAggregate& aggregate = lockingStarAggregates[i];
+    if (aggregate.count <= 0) {
+      continue;
+    }
+    double invCount = 1.0 / static_cast<double>(aggregate.count);
+    double expectedAz = wrapAngle360(radToDeg(atan2(aggregate.expectedAzSin * invCount,
+                                                    aggregate.expectedAzCos * invCount)));
+    double measuredAz = wrapAngle360(radToDeg(atan2(aggregate.measuredAzSin * invCount,
+                                                    aggregate.measuredAzCos * invCount)));
+    double expectedAlt = aggregate.expectedAltSum * invCount;
+    double measuredAlt = aggregate.measuredAltSum * invCount;
+    orientationModel.addSample(expectedAz, expectedAlt, measuredAz, measuredAlt);
+  }
 }
 
 void populateLockingStarOptions() {
@@ -1020,6 +1109,12 @@ bool computeLockingStarErrors(double& azErrorDeg, double& altErrorDeg) {
 }
 
 void startLockingStarFollowup(bool returnToMenu = false) {
+  if (!systemState.polarAligned || !orientationKnown) {
+    if (returnToMenu) {
+      showInfo("Lock Polaris first");
+    }
+    return;
+  }
   if (catalog::size() == 0) {
     if (returnToMenu) {
       showInfo("Catalog missing");
@@ -1032,6 +1127,8 @@ void startLockingStarFollowup(bool returnToMenu = false) {
   lockingStarPendingCatalogIndex = -1;
   lockingStarPendingName = "";
   lockingStarReturnToPolarMenu = returnToMenu;
+  lockingStarHasPrimaryLock = false;
+  clearLockingStarAggregates();
   showLockingStarMenu();
 }
 
@@ -1090,10 +1187,13 @@ void finalizeLockingStarRefinement() {
   }
   double currentAz = motion::stepsToAzDegrees(motion::getStepCount(Axis::Az));
   double currentAlt = motion::stepsToAltDegrees(motion::getStepCount(Axis::Alt));
+
+  addLockingStarObservation(lockingStarPendingCatalogIndex, lockingStarPendingName, expectedAz, expectedAlt,
+                           currentAz, currentAlt);
+  rebuildOrientationModelFromLocks();
+
   double azError = shortestAngularDistance(expectedAz, currentAz);
   double altError = currentAlt - expectedAlt;
-
-  orientationModel.addSample(expectedAz, expectedAlt, currentAz, currentAlt);
 
   stopTracking();
   motion::setStepCount(Axis::Az, motion::azDegreesToSteps(expectedAz));
@@ -1103,9 +1203,11 @@ void finalizeLockingStarRefinement() {
   applyOrientationState(true);
   bool trackingStarted = startTrackingCurrentOrientation();
 
-  char message[64];
-  snprintf(message, sizeof(message), "Lock saved dAz=%+.2f%c dAlt=%+.2f%c", azError, kDegreeSymbol,
-           altError, kDegreeSymbol);
+  lockingStarHasPrimaryLock = true;
+
+  char message[96];
+  snprintf(message, sizeof(message), "Star lock #%u dAz=%+.2f%c dAlt=%+.2f%c", (unsigned)lockingStarAggregateCount,
+           azError, kDegreeSymbol, altError, kDegreeSymbol);
   String infoMessage(message);
   if (orientationModel.hasCalibration()) {
     char modelBuffer[48];
@@ -1116,9 +1218,13 @@ void finalizeLockingStarRefinement() {
   if (!trackingStarted) {
     infoMessage += " (tracking off)";
   }
-  showInfo(infoMessage, 4000);
+  showInfo(infoMessage, 3500);
 
-  finishLockingStarFlow();
+  lockingStarGotoInProgress = false;
+  lockingStarPendingRefine = false;
+  lockingStarPendingCatalogIndex = -1;
+  lockingStarPendingName = "";
+  showLockingStarMenu();
 }
 
 void getObjectRaDecAt(const CatalogObject& object,
@@ -1393,14 +1499,14 @@ void drawStartupLockPrompt() {
 
 void drawLockingStarMenu() {
   display.setCursor(0, 12);
-  display.print("Refine alignment");
+  display.print("Lock home stars");
   int listTop = 24;
   int visibleRows = computeVisibleRows(listTop, kLineHeight);
   if (lockingStarOptionCount == 0) {
     display.setCursor(0, listTop);
     display.print("No bright stars");
     display.setCursor(0, listTop + kLineHeight);
-    display.print("Enc/Joy=Skip");
+    display.print("Enc/Joy=Done");
     return;
   }
 
@@ -1431,12 +1537,12 @@ void drawLockingStarMenu() {
   }
 
   display.setCursor(0, config::OLED_HEIGHT - kLineHeight);
-  display.print("Enc=Goto Joy=Skip");
+  display.print("Enc=Goto Joy=Done");
 }
 
 void drawLockingStarRefine() {
   display.setCursor(0, 12);
-  display.print("Refine alignment");
+  display.print("Lock home stars");
   display.setCursor(0, 20);
   if (lockingStarPendingName.isEmpty()) {
     display.print("Selected star");
@@ -1459,7 +1565,7 @@ void drawLockingStarRefine() {
     display.print("Use joystick");
   }
   display.setCursor(0, 52);
-  display.print("Enc=Save Joy=Skip");
+  display.print("Enc=Confirm Joy=Done");
 }
 
 void drawStatusMenuPrompt() {
@@ -1498,13 +1604,13 @@ void drawMainMenu() {
 
 void drawPolarAlignMenu() {
   display.setCursor(0, 16);
-  display.print("Polar Align");
+  display.print("Homing");
   display.setCursor(0, 24);
   if (orientationModel.hasCalibration()) {
     display.printf("dAz=%+.2f%c dAlt=%+.2f%c", orientationModel.azBias(), kDegreeSymbol,
                   orientationModel.altBias(), kDegreeSymbol);
   } else {
-    display.print("No refinements");
+    display.print("No star locks");
   }
   constexpr int kListTop = 32;
   constexpr int kFooterHeight = 0;
@@ -3615,7 +3721,8 @@ void handlePolarAlignMenuInput(int delta) {
     case kPolarAlignMenuClearIndex:
       orientationModel.reset();
       storage::clearOrientationModel();
-      showInfo("Refinements cleared");
+      clearLockingStarAggregates();
+      showInfo("Star locks cleared");
       break;
     case kPolarAlignMenuBackIndex:
       systemState.menuMode = MenuMode::Status;
@@ -4030,7 +4137,7 @@ void handleLockingStarMenuInput(int delta) {
 
   if (input::consumeEncoderClick()) {
     if (lockingStarOptionCount == 0) {
-      showInfo("Refine skipped", 2000);
+      showInfo(lockingStarHasPrimaryLock ? "Star lock done" : "No star lock", 2000);
       finishLockingStarFlow();
       return;
     }
@@ -4044,7 +4151,7 @@ void handleLockingStarMenuInput(int delta) {
   }
 
   if (input::consumeJoystickPress()) {
-    showInfo("Refine skipped", 2000);
+    showInfo(lockingStarHasPrimaryLock ? "Star lock done" : "No star lock", 2000);
     finishLockingStarFlow();
   }
 }
@@ -4059,7 +4166,7 @@ void handleLockingStarRefineInput() {
     return;
   }
   if (input::consumeJoystickPress()) {
-    showInfo("Lock not saved", 2000);
+    showInfo("Star lock done", 2000);
     finishLockingStarFlow();
   }
 }
@@ -4405,7 +4512,6 @@ void completePolarAlignment() {
   setUiState(UiState::StatusScreen);
   bool trackingStarted = startTrackingCurrentOrientation();
   showInfo(trackingStarted ? "Tracking Polaris" : "Polaris locked");
-  startLockingStarFollowup();
 }
 
 void startPolarAlignment() {
