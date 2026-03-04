@@ -1,5 +1,7 @@
 #include "wifi_ota.h"
 
+#include <ESPmDNS.h>
+#include <Hash.h>
 #include <ArduinoOTA.h>
 #include <WiFi.h>
 #include <time.h>
@@ -239,4 +241,3 @@ void update() {
 }
 
 }  // namespace wifi_ota
-
