@@ -319,11 +319,10 @@ struct SpeedProfileState {
 };
 
 struct BacklashCalibrationState {
-  int step;
-  int64_t azStart;
-  int64_t azEnd;
-  int64_t altStart;
-  int64_t altEnd;
+  int32_t azSteps;
+  int32_t altSteps;
+  int fieldIndex;
+  int actionIndex;
 };
 
 struct DisplayBrightnessState {
@@ -334,7 +333,8 @@ struct DisplayBrightnessState {
 };
 
 SpeedProfileState speedProfileState{0.0f, 0.0f, 0.0f, 0, SpeedEditMode::Goto, 0};
-BacklashCalibrationState backlashState{0, 0, 0, 0, 0};
+BacklashCalibrationState backlashState{0, 0, 0, 0};
+constexpr int kBacklashFieldCount = 3;
 constexpr int kDisplayBrightnessFieldCount = 2;
 DisplayBrightnessState displayBrightnessState{0x7F, 0x7F, 0, 0};
 
@@ -2158,14 +2158,51 @@ void drawDisplayBrightnessSetup() {
 void drawBacklashCalibration() {
   display.setCursor(0, 12);
   display.print("Backlash Cal");
-  const char* prompts[] = {"Az fwd pos, enc", "Az reverse, enc", "Alt fwd pos, enc", "Alt reverse, enc", "Done"};
-  int idx = std::min(backlashState.step, 4);
-  display.setCursor(0, 24);
-  display.print(prompts[idx]);
-  display.setCursor(0, 40);
-  display.print("Use joy to move");
-  display.setCursor(0, 56);
-  display.print("Joy btn = abort");
+
+  int y = 24;
+  bool azSelected = backlashState.fieldIndex == 0;
+  if (azSelected) {
+    display.fillRect(0, y, config::OLED_WIDTH, kLineHeight, SSD1306_WHITE);
+    display.setTextColor(SSD1306_BLACK);
+  } else {
+    display.setTextColor(SSD1306_WHITE);
+  }
+  display.setCursor(0, y);
+  display.printf("Az steps: %ld", static_cast<long>(backlashState.azSteps));
+  if (azSelected) {
+    display.setTextColor(SSD1306_WHITE);
+  }
+
+  y += kLineHeight;
+  bool altSelected = backlashState.fieldIndex == 1;
+  if (altSelected) {
+    display.fillRect(0, y, config::OLED_WIDTH, kLineHeight, SSD1306_WHITE);
+    display.setTextColor(SSD1306_BLACK);
+  } else {
+    display.setTextColor(SSD1306_WHITE);
+  }
+  display.setCursor(0, y);
+  display.printf("Alt steps: %ld", static_cast<long>(backlashState.altSteps));
+  if (altSelected) {
+    display.setTextColor(SSD1306_WHITE);
+  }
+
+  y += kLineHeight;
+  bool actionSelected = backlashState.fieldIndex == kBacklashFieldCount - 1;
+  if (actionSelected) {
+    display.fillRect(0, y, config::OLED_WIDTH, kLineHeight, SSD1306_WHITE);
+    display.setTextColor(SSD1306_BLACK);
+  } else {
+    display.setTextColor(SSD1306_WHITE);
+  }
+  display.setCursor(0, y);
+  display.print(backlashState.actionIndex == 0 ? "Save" : "Back");
+  if (actionSelected) {
+    display.setTextColor(SSD1306_WHITE);
+  }
+
+  display.setCursor(0, 60);
+  display.print("Enc=Adj/Conf Joy=Cancel");
 }
 
 void drawGotoCoordinateEntry() {
@@ -2641,56 +2678,58 @@ void handleGotoCoordinateInput(int delta) {
 }
 
 void startBacklashCalibration() {
-  backlashState = {0, 0, 0, 0, 0};
+  BacklashConfig config = storage::getConfig().backlash;
+  backlashState = {std::max<int32_t>(0, config.azSteps), std::max<int32_t>(0, config.altSteps), 0,
+                   0};
   setUiState(UiState::BacklashCalibration);
-  showInfo("Az fwd pos");
 }
 
-void completeBacklashCalibration() {
-  int32_t azSteps = static_cast<int32_t>(std::min<int64_t>(llabs(backlashState.azEnd - backlashState.azStart), INT32_MAX));
-  int32_t altSteps = static_cast<int32_t>(std::min<int64_t>(llabs(backlashState.altEnd - backlashState.altStart), INT32_MAX));
-  BacklashConfig config{azSteps, altSteps};
+void completeBacklashCalibration(bool saveValues) {
+  if (!saveValues) {
+    showInfo("Backlash unchanged");
+    setUiState(UiState::SetupMenu);
+    return;
+  }
+  BacklashConfig config{backlashState.azSteps, backlashState.altSteps};
   storage::setBacklash(config);
   motion::setBacklash(config);
   showInfo("Backlash saved");
   setUiState(UiState::SetupMenu);
 }
 
-void handleBacklashCalibrationInput() {
+void handleBacklashCalibrationInput(int delta) {
+  if (delta != 0) {
+    if (backlashState.fieldIndex == 0) {
+      int64_t updated = static_cast<int64_t>(backlashState.azSteps) + delta;
+      backlashState.azSteps = static_cast<int32_t>(std::clamp<int64_t>(updated, 0, INT32_MAX));
+    } else if (backlashState.fieldIndex == 1) {
+      int64_t updated = static_cast<int64_t>(backlashState.altSteps) + delta;
+      backlashState.altSteps = static_cast<int32_t>(std::clamp<int64_t>(updated, 0, INT32_MAX));
+    } else {
+      int step = delta > 0 ? 1 : -1;
+      backlashState.actionIndex = (backlashState.actionIndex + step + 2) % 2;
+    }
+  }
+
   if (input::consumeJoystickPress()) {
     setUiState(UiState::SetupMenu);
-    showInfo("Cal aborted");
+    showInfo("Backlash canceled");
     return;
   }
-  bool select = input::consumeEncoderClick();
-  if (!select) {
+
+  if (!input::consumeEncoderClick()) {
     return;
   }
-  switch (backlashState.step) {
-    case 0:
-      backlashState.azStart = motion::getStepCount(Axis::Az);
-      backlashState.step = 1;
-      showInfo("Reverse AZ");
-      break;
-    case 1:
-      backlashState.azEnd = motion::getStepCount(Axis::Az);
-      backlashState.step = 2;
-      showInfo("Set Alt pos");
-      break;
-    case 2:
-      backlashState.altStart = motion::getStepCount(Axis::Alt);
-      backlashState.step = 3;
-      showInfo("Reverse ALT");
-      break;
-    case 3:
-      backlashState.altEnd = motion::getStepCount(Axis::Alt);
-      backlashState.step = 4;
-      completeBacklashCalibration();
-      break;
-    default:
-      setUiState(UiState::SetupMenu);
-      break;
+
+  if (backlashState.fieldIndex < kBacklashFieldCount - 1) {
+    ++backlashState.fieldIndex;
+    if (backlashState.fieldIndex == kBacklashFieldCount - 1) {
+      backlashState.actionIndex = 0;
+    }
+    return;
   }
+
+  completeBacklashCalibration(backlashState.actionIndex == 0);
 }
 
 void render() {
@@ -4481,7 +4520,7 @@ void handleInput() {
       handleGotoCoordinateInput(delta);
       break;
     case UiState::BacklashCalibration:
-      handleBacklashCalibrationInput();
+      handleBacklashCalibrationInput(delta);
       break;
   }
 }
