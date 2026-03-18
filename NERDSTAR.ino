@@ -80,6 +80,8 @@ void setup() {
   motion::init();
   motion::applyCalibration(storage::getConfig().axisCalibration);
   motion::setBacklash(storage::getConfig().backlash);
+  motion::setBacklashTakeupRateStepsPerSecond(
+      storage::getConfig().backlashTakeupRateStepsPerSecond);
   motion::setMotorInversion(storage::getConfig().motorInvertAz != 0,
                             storage::getConfig().motorInvertAlt != 0);
   display_menu::prepareStartupLockPrompt(systemState.polarAligned);
@@ -362,6 +364,11 @@ void handleRequest(const comm::Request& request) {
     config.altSteps = static_cast<int32_t>(request.params[1].toInt());
     motion::setBacklash(config);
     comm::sendOk(request.id, {});
+  } else if (cmd == "SET_BACKLASH_TAKEUP_RATE") {
+    if (!requireParams(1)) return;
+    int32_t stepsPerSecond = static_cast<int32_t>(request.params[0].toInt());
+    motion::setBacklashTakeupRateStepsPerSecond(stepsPerSecond);
+    comm::sendOk(request.id, {});
   } else if (cmd == "SET_MOTOR_ORIENTATION") {
     if (!requireParams(2)) return;
     bool invertAz = request.params[0] == "1";
@@ -379,6 +386,10 @@ void handleRequest(const comm::Request& request) {
     Axis axis;
     if (!parseAxisParam(0, axis)) return;
     comm::sendOk(request.id, {String(motion::getBacklashSteps(axis))});
+  } else if (cmd == "GET_BACKLASH_TAKEUP_RATE") {
+    comm::sendOk(
+        request.id,
+        {String(motion::getBacklashTakeupRateStepsPerSecond())});
   } else if (cmd == "GET_LAST_DIR") {
     if (!requireParams(1)) return;
     Axis axis;
@@ -424,6 +435,8 @@ void setup() {
   motion::init();
   motion::applyCalibration(storage::getConfig().axisCalibration);
   motion::setBacklash(storage::getConfig().backlash);
+  motion::setBacklashTakeupRateStepsPerSecond(
+      storage::getConfig().backlashTakeupRateStepsPerSecond);
   motion::setMotorInversion(storage::getConfig().motorInvertAz != 0,
                             storage::getConfig().motorInvertAlt != 0);
 

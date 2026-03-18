@@ -125,12 +125,14 @@ Diese Anleitung führt dich Schritt für Schritt durch Inbetriebnahme und Bedien
 2. Werte gelten für manuelles Slewen beider Achsen.【F:display_menu.cpp†L1182-L1234】
 
 ### 5.7 Umkehrspiel (Backlash) kalibrieren
-1. `Setup → Cal Backlash` starten. Die Anzeige führt durch die vier Messpunkte:
-   - **Az fwd pos**: Objekt mit Joystick in Vorwärtsrichtung anfahren, Encoder drücken.
-   - **Az reverse**: Richtung wechseln bis Spiel aufgehoben ist, Encoder drücken.
-   - **Alt fwd pos** / **Alt reverse**: Gleiches Verfahren für die Höhenachse.
-2. Zwischendurch den Joystick für die Bewegung nutzen, Joystick-Taste bricht den Vorgang ab.
-3. Nach Abschluss werden die ermittelten Schrittwerte gespeichert und automatisch in der Goto-Steuerung berücksichtigt.
+1. `Setup → Cal Backlash` öffnen. Das Menü bietet drei editierbare Werte:
+   - **Az steps**: Umkehrspiel der Azimut-Achse in Schritten
+   - **Alt steps**: Umkehrspiel der Höhenachse in Schritten
+   - **Takeup/s**: Geschwindigkeit, mit der das Spiel nach einem Richtungswechsel aufgenommen wird (Schritte pro Sekunde)
+2. Mit dem Encoder den markierten Wert ändern. Encoder drücken wechselt zum nächsten Feld; im letzten Feld wählst du `Save` oder `Back`.
+3. Joystick-Taste bricht jederzeit ohne Speichern ab.
+4. Beim Speichern werden Backlash-Werte und Takeup-Rate dauerhaft abgelegt und sofort für Richtungswechsel übernommen. Eine höhere Takeup-Rate reagiert direkter, eine niedrigere weicher.
+5. Als sinnvoller Startwert nutzt die Firmware standardmäßig **259 Mikroschritte** Backlash und **1036 Schritte/s** Takeup-Geschwindigkeit. Das entspricht ungefähr **35 arcmin** Spiel an der 50:1-Getriebestufe und einer Aufholzeit von rund **0,25 s**.
 
 ### 5.8 WiFi OTA
 1. `Setup → WiFi OTA` zeigt den aktuellen Status (`NoCfg`, `Off`, `Conn`, `On`).【F:display_menu.cpp†L724-L737】

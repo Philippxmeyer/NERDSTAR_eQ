@@ -33,12 +33,14 @@ und ein Hauch Größenwahn ergeben zusammen ein
 | 📡 **WiFi OTA + NTP**         | Optionales WLAN für OTA-Updates & NTP-Synchronisierung mit beiden ESP32-Rollen |
 | 📶 **Eigenes WiFi-AP**        | HID-ESP32 kann einen Access Point mit SSID „NERDSTAR“ bereitstellen – ideal fürs iPhone im Feld |
 | 🌌 **Stellarium-Bridge**      | LX200-kompatibler TCP-Server (Port 10001) nimmt Goto/Stop-Kommandos entgegen und zeigt Status/IST-Koordinaten am OLED |
-| 🔧 **Setup & Kalibrierung**   | Menü für RTC, Joystick-Zentrum, Achsen-, Backlash- & Geschwindigkeitsprofil |
+| 🔧 **Setup & Kalibrierung**   | Menü für RTC, Joystick-Zentrum, Achsen-, Backlash- & Geschwindigkeitsprofil inkl. Backlash-Takeup-Rate |
 | 📺 **OLED Status Display**    | Zeigt Az/Alt, Tracking-/Goto-Status, Ziel und Diagnosewerte                 |
 | ⚙️ **µs-Timersteuerung**      | Stepper laufen so gleichmäßig, dass man sie fast atmen hört                |
 | 🧠 **ESP32 Dual-Core**        | Hauptrechner: Core 1 steuert die Motoren, Core 0 berechnet Kurs & Protokoll |
 | 🔌 **Zwei ESP32**             | Zweiter ESP32-WROOM kümmert sich ausschließlich um HID (Display, Joystick, Persistenz) |
 | 🔁 **Bulletproof HID-Link**   | Dedizierter UART + Retry-Logik sichert stabile Kommunikation zwischen den Boards |
+
+`Setup → Cal Backlash` erlaubt das direkte Editieren von Azimut-/Höhen-Backlash in Schritten sowie der Backlash-Takeup-Rate in Schritten pro Sekunde. Als Startwert verwendet die Firmware ca. **259 Mikroschritte** Backlash und **1036 Schritte/s** Takeup-Geschwindigkeit, abgeleitet aus etwa **35 arcmin** Spiel der 50:1-Getriebestufe. So lässt sich festlegen, wie schnell Richtungswechsel das Spiel aufnehmen, bevor die Achse wieder normal zählt.
 
 ---
 

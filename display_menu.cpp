@@ -321,6 +321,7 @@ struct SpeedProfileState {
 struct BacklashCalibrationState {
   int32_t azSteps;
   int32_t altSteps;
+  int32_t takeupRateStepsPerSecond;
   int fieldIndex;
   int actionIndex;
 };
@@ -333,8 +334,8 @@ struct DisplayBrightnessState {
 };
 
 SpeedProfileState speedProfileState{0.0f, 0.0f, 0.0f, 0, SpeedEditMode::Goto, 0};
-BacklashCalibrationState backlashState{0, 0, 0, 0};
-constexpr int kBacklashFieldCount = 3;
+BacklashCalibrationState backlashState{0, 0, config::DEFAULT_BACKLASH_TAKEUP_STEPS_PER_SEC, 0, 0};
+constexpr int kBacklashFieldCount = 4;
 constexpr int kDisplayBrightnessFieldCount = 2;
 DisplayBrightnessState displayBrightnessState{0x7F, 0x7F, 0, 0};
 
@@ -2188,6 +2189,20 @@ void drawBacklashCalibration() {
   }
 
   y += kLineHeight;
+  bool rateSelected = backlashState.fieldIndex == 2;
+  if (rateSelected) {
+    display.fillRect(0, y, config::OLED_WIDTH, kLineHeight, SSD1306_WHITE);
+    display.setTextColor(SSD1306_BLACK);
+  } else {
+    display.setTextColor(SSD1306_WHITE);
+  }
+  display.setCursor(0, y);
+  display.printf("Takeup/s: %ld", static_cast<long>(backlashState.takeupRateStepsPerSecond));
+  if (rateSelected) {
+    display.setTextColor(SSD1306_WHITE);
+  }
+
+  y += kLineHeight;
   bool actionSelected = backlashState.fieldIndex == kBacklashFieldCount - 1;
   if (actionSelected) {
     display.fillRect(0, y, config::OLED_WIDTH, kLineHeight, SSD1306_WHITE);
@@ -2679,7 +2694,10 @@ void handleGotoCoordinateInput(int delta) {
 
 void startBacklashCalibration() {
   BacklashConfig config = storage::getConfig().backlash;
-  backlashState = {std::max<int32_t>(0, config.azSteps), std::max<int32_t>(0, config.altSteps), 0,
+  backlashState = {std::max<int32_t>(0, config.azSteps),
+                   std::max<int32_t>(0, config.altSteps),
+                   std::max<int32_t>(1, storage::getConfig().backlashTakeupRateStepsPerSecond),
+                   0,
                    0};
   setUiState(UiState::BacklashCalibration);
 }
@@ -2692,7 +2710,9 @@ void completeBacklashCalibration(bool saveValues) {
   }
   BacklashConfig config{backlashState.azSteps, backlashState.altSteps};
   storage::setBacklash(config);
+  storage::setBacklashTakeupRateStepsPerSecond(backlashState.takeupRateStepsPerSecond);
   motion::setBacklash(config);
+  motion::setBacklashTakeupRateStepsPerSecond(backlashState.takeupRateStepsPerSecond);
   showInfo("Backlash saved");
   setUiState(UiState::SetupMenu);
 }
@@ -2705,6 +2725,10 @@ void handleBacklashCalibrationInput(int delta) {
     } else if (backlashState.fieldIndex == 1) {
       int64_t updated = static_cast<int64_t>(backlashState.altSteps) + delta;
       backlashState.altSteps = static_cast<int32_t>(std::clamp<int64_t>(updated, 0, INT32_MAX));
+    } else if (backlashState.fieldIndex == 2) {
+      int64_t updated = static_cast<int64_t>(backlashState.takeupRateStepsPerSecond) + delta;
+      backlashState.takeupRateStepsPerSecond =
+          static_cast<int32_t>(std::clamp<int64_t>(updated, 1, INT32_MAX));
     } else {
       int step = delta > 0 ? 1 : -1;
       backlashState.actionIndex = (backlashState.actionIndex + step + 2) % 2;

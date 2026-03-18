@@ -93,8 +93,11 @@ constexpr int DEFAULT_JOYSTICK_CENTER = 2048;
 constexpr double DEFAULT_AXIS_STEPS_PER_DEG = 0.0;
 constexpr int64_t DEFAULT_AZ_HOME_OFFSET = 0;
 constexpr int64_t DEFAULT_ALT_HOME_OFFSET = 0;
-constexpr int32_t DEFAULT_BACKLASH_AZ_STEPS = 0;
-constexpr int32_t DEFAULT_BACKLASH_ALT_STEPS = 0;
+// 35 arcmin gearbox backlash on the 50:1 stage corresponds to about 259 microsteps.
+constexpr int32_t DEFAULT_BACKLASH_AZ_STEPS = 259;
+constexpr int32_t DEFAULT_BACKLASH_ALT_STEPS = 259;
+// Taking up 259 microsteps in about 0.25 s corresponds to roughly 1036 steps/s.
+constexpr int32_t DEFAULT_BACKLASH_TAKEUP_STEPS_PER_SEC = 1036;
 constexpr bool DEFAULT_JOYSTICK_CALIBRATED = false;
 constexpr bool DEFAULT_AXIS_CALIBRATED = false;
 constexpr bool DEFAULT_POLAR_ALIGNED = false;

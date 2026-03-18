@@ -10,7 +10,7 @@
 namespace {
 
 constexpr uint32_t kConfigMagic = 0x4E455244;  // "NERD"
-constexpr uint16_t kConfigVersion = 3;
+constexpr uint16_t kConfigVersion = 4;
 constexpr size_t kConfigStorageSize = 256;
 bool eepromReady = false;
 
@@ -46,7 +46,8 @@ SystemConfig systemConfig{kConfigMagic,
                           config::DEFAULT_ORIENTATION_ALT_BIAS_DEG,
                           config::DEFAULT_ORIENTATION_SAMPLE_WEIGHT,
                           kConfigVersion,
-                          config::DEFAULT_DISPLAY_CONTRAST};
+                          config::DEFAULT_DISPLAY_CONTRAST,
+                          config::DEFAULT_BACKLASH_TAKEUP_STEPS_PER_SEC};
 
 static_assert(sizeof(SystemConfig) <= kConfigStorageSize, "SystemConfig too large for config storage");
 
@@ -93,6 +94,8 @@ void applyDefaults() {
   systemConfig.orientationSampleWeight = config::DEFAULT_ORIENTATION_SAMPLE_WEIGHT;
   systemConfig.configVersion = kConfigVersion;
   systemConfig.displayContrast = config::DEFAULT_DISPLAY_CONTRAST;
+  systemConfig.backlashTakeupRateStepsPerSecond =
+      config::DEFAULT_BACKLASH_TAKEUP_STEPS_PER_SEC;
 }
 
 bool profileIsInvalid(const GotoProfile& profile) {
@@ -140,6 +143,11 @@ bool init() {
     }
     if (systemConfig.backlash.azSteps < 0) systemConfig.backlash.azSteps = 0;
     if (systemConfig.backlash.altSteps < 0) systemConfig.backlash.altSteps = 0;
+    if (systemConfig.backlashTakeupRateStepsPerSecond <= 0) {
+      systemConfig.backlashTakeupRateStepsPerSecond =
+          config::DEFAULT_BACKLASH_TAKEUP_STEPS_PER_SEC;
+      needsSave = true;
+    }
     if (!isfinite(systemConfig.observerLatitudeDeg) || systemConfig.observerLatitudeDeg < -90.0 ||
         systemConfig.observerLatitudeDeg > 90.0) {
       systemConfig.observerLatitudeDeg = config::OBSERVER_LATITUDE_DEG;
@@ -196,6 +204,11 @@ bool init() {
       systemConfig.displayContrast = config::DEFAULT_DISPLAY_CONTRAST;
       needsSave = true;
     }
+    if (systemConfig.configVersion < 4) {
+      systemConfig.backlashTakeupRateStepsPerSecond =
+          config::DEFAULT_BACKLASH_TAKEUP_STEPS_PER_SEC;
+      needsSave = true;
+    }
     if (systemConfig.configVersion != kConfigVersion) {
       systemConfig.configVersion = kConfigVersion;
       needsSave = true;
@@ -223,6 +236,14 @@ void setAxisCalibration(const AxisCalibration& calibration) {
 
 void setBacklash(const BacklashConfig& backlash) {
   systemConfig.backlash = backlash;
+  saveConfigInternal();
+}
+
+void setBacklashTakeupRateStepsPerSecond(int32_t stepsPerSecond) {
+  if (stepsPerSecond <= 0) {
+    stepsPerSecond = config::DEFAULT_BACKLASH_TAKEUP_STEPS_PER_SEC;
+  }
+  systemConfig.backlashTakeupRateStepsPerSecond = stepsPerSecond;
   saveConfigInternal();
 }
 

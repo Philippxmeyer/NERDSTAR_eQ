@@ -31,6 +31,7 @@ struct SystemConfig {
   double orientationSampleWeight;
   uint16_t configVersion;
   uint8_t displayContrast;
+  int32_t backlashTakeupRateStepsPerSecond;
 };
 
 namespace storage {
@@ -51,6 +52,7 @@ const SystemConfig& getConfig();
 void setJoystickCalibration(const JoystickCalibration& calibration);
 void setAxisCalibration(const AxisCalibration& calibration);
 void setBacklash(const BacklashConfig& backlash);
+void setBacklashTakeupRateStepsPerSecond(int32_t stepsPerSecond);
 void setGotoProfile(const GotoProfile& profile);
 void setPanningProfile(const GotoProfile& profile);
 void setPolarAligned(bool aligned);
@@ -68,4 +70,3 @@ bool readCatalogEntry(size_t index, CatalogEntry& entry);
 bool readCatalogString(uint16_t offset, uint8_t length, char* buffer, size_t bufferSize);
 
 }  // namespace storage
-
