@@ -34,6 +34,8 @@ struct AxisState {
   int8_t lastDirection;
   int8_t commandDirection;
   int32_t backlashStepsRemaining;
+  bool backlashActive;
+  int8_t backlashDirection;
   uint64_t nextStepDueUs;
 };
 
@@ -53,6 +55,8 @@ AxisState axisAz{config::EN_RA,
                  1,
                  0,
                  0,
+                 false,
+                 0,
                  0};
 
 AxisState axisAlt{config::EN_DEC,
@@ -65,6 +69,8 @@ AxisState axisAlt{config::EN_DEC,
                   0.0,
                   1,
                   0,
+                  0,
+                  false,
                   0,
                   0};
 
@@ -81,6 +87,7 @@ AxisCalibration calibration{
     0};
 
 BacklashConfig backlash{0, 0};
+int32_t backlashTakeupRateStepsPerSecond = config::DEFAULT_BACKLASH_TAKEUP_STEPS_PER_SEC;
 
 portMUX_TYPE trackingMux = portMUX_INITIALIZER_UNLOCKED;
 bool trackingEnabled = false;
@@ -194,25 +201,11 @@ int64_t clampAltitudeSteps(int64_t steps) {
 void applyStep(AxisState& axis, int8_t direction, uint64_t nextDue) {
   bool allowStep = true;
   bool applyingBacklash = false;
-  bool updateCounter = true;
-
-  int32_t configuredBacklash = getAxisBacklashSteps(axis);
 
   portENTER_CRITICAL(&axis.mux);
 
-  if (axis.commandDirection != direction) {
-    axis.commandDirection = direction;
-    if (axis.lastDirection != 0 && axis.lastDirection != direction &&
-        configuredBacklash > 0) {
-      axis.backlashStepsRemaining = configuredBacklash;
-    } else {
-      axis.backlashStepsRemaining = 0;
-    }
-  }
-
-  if (axis.backlashStepsRemaining > 0) {
+  if (axis.backlashActive && axis.backlashStepsRemaining > 0) {
     applyingBacklash = true;
-    updateCounter = false;
   }
 
   int64_t candidate = axis.stepCounter + direction;
@@ -229,7 +222,7 @@ void applyStep(AxisState& axis, int8_t direction, uint64_t nextDue) {
   }
 
   if (allowStep) {
-    if (updateCounter) {
+    if (!applyingBacklash) {
       axis.stepCounter = candidate;
       axis.lastDirection = direction;
     }
@@ -239,6 +232,7 @@ void applyStep(AxisState& axis, int8_t direction, uint64_t nextDue) {
   if (allowStep && applyingBacklash) {
     axis.backlashStepsRemaining--;
     if (axis.backlashStepsRemaining == 0) {
+      axis.backlashActive = false;
       axis.lastDirection = direction;
     }
   }
@@ -263,22 +257,53 @@ void applyStep(AxisState& axis, int8_t direction, uint64_t nextDue) {
 }
 
 uint64_t updateAxis(AxisState& axis, uint64_t nowUs) {
+  double total = 0.0;
+  int8_t direction = 0;
+  bool backlashMode = false;
+
+  int32_t configuredBacklash = getAxisBacklashSteps(axis);
   double user = getAxisUserContribution(axis);
   double gotoRate = getAxisGotoContribution(axis);
   double trackingRate = isTrackingEnabled() ? getAxisTrackingContribution(axis)
                                             : 0.0;
-  double total = user + gotoRate + trackingRate;
-  if (std::fabs(total) < kMinActiveStepsPerSecond) {
+  double commanded = user + gotoRate + trackingRate;
+
+  if (std::fabs(commanded) >= kMinActiveStepsPerSecond) {
+    direction = (commanded >= 0.0) ? 1 : -1;
+    total = std::fabs(commanded);
+  }
+
+  portENTER_CRITICAL(&axis.mux);
+  if (direction != 0 && axis.commandDirection != direction) {
+    axis.commandDirection = direction;
+    if (axis.lastDirection != 0 && axis.lastDirection != direction &&
+        configuredBacklash > 0) {
+      axis.backlashStepsRemaining = configuredBacklash;
+      axis.backlashActive = true;
+      axis.backlashDirection = direction;
+    } else {
+      axis.backlashStepsRemaining = 0;
+      axis.backlashActive = false;
+    }
+  }
+
+  if (axis.backlashActive && axis.backlashStepsRemaining > 0) {
+    backlashMode = true;
+    direction = axis.backlashDirection;
+    total = static_cast<double>(backlashTakeupRateStepsPerSecond);
+  }
+  portEXIT_CRITICAL(&axis.mux);
+
+  if (!backlashMode && std::fabs(total) < kMinActiveStepsPerSecond) {
     updateNextStep(axis, 0);
     digitalWrite(axis.stepPin, LOW);
     return std::numeric_limits<uint64_t>::max();
   }
 
-  int8_t direction = (total >= 0.0) ? 1 : -1;
-  total = std::fabs(total);
   if (total < kMinActiveStepsPerSecond) {
     total = kMinActiveStepsPerSecond;
   }
+
   uint64_t nextDue = nowUs;
   {
     portENTER_CRITICAL(&axis.mux);
@@ -445,6 +470,14 @@ void stopAll() {
   setAxisGotoContribution(axisAlt, 0.0);
   setAxisTrackingContribution(axisAz, 0.0);
   setAxisTrackingContribution(axisAlt, 0.0);
+  portENTER_CRITICAL(&axisAz.mux);
+  axisAz.backlashStepsRemaining = 0;
+  axisAz.backlashActive = false;
+  portEXIT_CRITICAL(&axisAz.mux);
+  portENTER_CRITICAL(&axisAlt.mux);
+  axisAlt.backlashStepsRemaining = 0;
+  axisAlt.backlashActive = false;
+  portEXIT_CRITICAL(&axisAlt.mux);
   portENTER_CRITICAL(&trackingMux);
   trackingEnabled = false;
   portEXIT_CRITICAL(&trackingMux);
@@ -474,7 +507,12 @@ void setStepCount(Axis axis, int64_t value) {
   if (axis == Axis::Alt && altitudeLimitsEnabled) {
     value = clampAltitudeSteps(value);
   }
-  setAxisCounter(getAxisState(axis), value);
+  AxisState& axisState = getAxisState(axis);
+  portENTER_CRITICAL(&axisState.mux);
+  axisState.stepCounter = value;
+  axisState.backlashStepsRemaining = 0;
+  axisState.backlashActive = false;
+  portEXIT_CRITICAL(&axisState.mux);
 }
 
 double stepsToAzDegrees(int64_t steps) {
@@ -537,10 +575,19 @@ void applyCalibration(const AxisCalibration& newCalibration) {
 
 void setBacklash(const BacklashConfig& newBacklash) { backlash = newBacklash; }
 
+void setBacklashTakeupRateStepsPerSecond(int32_t stepsPerSecond) {
+  backlashTakeupRateStepsPerSecond =
+      (stepsPerSecond > 0) ? stepsPerSecond : config::DEFAULT_BACKLASH_TAKEUP_STEPS_PER_SEC;
+}
+
 void setAltitudeLimitsEnabled(bool enabled) { altitudeLimitsEnabled = enabled; }
 
 int32_t getBacklashSteps(Axis axis) {
   return (axis == Axis::Az) ? backlash.azSteps : backlash.altSteps;
+}
+
+int32_t getBacklashTakeupRateStepsPerSecond() {
+  return backlashTakeupRateStepsPerSecond;
 }
 
 int8_t getLastDirection(Axis axis) {

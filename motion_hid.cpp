@@ -213,6 +213,10 @@ void setBacklash(const BacklashConfig& backlash) {
                 {String(backlash.azSteps), String(backlash.altSteps)});
 }
 
+void setBacklashTakeupRateStepsPerSecond(int32_t stepsPerSecond) {
+  callAndUpdate("SET_BACKLASH_TAKEUP_RATE", {String(stepsPerSecond)});
+}
+
 void setAltitudeLimitsEnabled(bool enabled) {
   callAndUpdate("SET_ALT_LIMITS_ENABLED", {enabled ? "1" : "0"});
 }
@@ -259,6 +263,17 @@ int32_t getBacklashSteps(Axis axis) {
   }
   if (payload.empty()) {
     return 0;
+  }
+  return static_cast<int32_t>(payload.front().toInt());
+}
+
+int32_t getBacklashTakeupRateStepsPerSecond() {
+  std::vector<String> payload;
+  if (!callAndUpdate("GET_BACKLASH_TAKEUP_RATE", {}, &payload)) {
+    return config::DEFAULT_BACKLASH_TAKEUP_STEPS_PER_SEC;
+  }
+  if (payload.empty()) {
+    return config::DEFAULT_BACKLASH_TAKEUP_STEPS_PER_SEC;
   }
   return static_cast<int32_t>(payload.front().toInt());
 }
