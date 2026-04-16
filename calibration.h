@@ -2,11 +2,6 @@
 
 #include <Arduino.h>
 
-struct JoystickCalibration {
-  int centerX;
-  int centerY;
-};
-
 struct AxisCalibration {
   double stepsPerDegreeAz;
   double stepsPerDegreeAlt;

@@ -1,16 +1,9 @@
 #include "stellarium_link.h"
 
-#if defined(DEVICE_ROLE_HID)
-
 #include <WiFi.h>
-#include <algorithm>
-#include <math.h>
-#include <utility>
 
 #include "config.h"
-#include "display_menu.h"
 #include "motion.h"
-#include "storage.h"
 #include "time_utils.h"
 #include "wifi_ota.h"
 
@@ -22,643 +15,121 @@ WiFiClient g_client;
 bool g_accessPointActive = false;
 IPAddress g_accessPointIp;
 String g_commandBuffer;
-bool g_clientConnected = false;
-double g_pendingRaHours = 0.0;
-double g_pendingDecDegrees = 0.0;
-bool g_pendingRaValid = false;
-bool g_pendingDecValid = false;
-uint32_t g_lastClientActivityMs = 0;
-constexpr uint32_t kClientIdleTimeoutMs = 5UL * 60UL * 1000UL;
-bool g_pendingTimezoneUpdate = false;
-int32_t g_pendingTimezoneMinutes = 0;
-bool g_pendingObserverLocationUpdate = false;
-bool g_pendingLatitudeUpdate = false;
-bool g_pendingLongitudeUpdate = false;
-double g_pendingLatitudeDeg = 0.0;
-double g_pendingLongitudeDeg = 0.0;
-bool g_pendingDateUpdate = false;
-bool g_pendingTimeUpdate = false;
-uint16_t g_pendingYear = 0;
-uint8_t g_pendingMonth = 0;
-uint8_t g_pendingDay = 0;
-uint8_t g_pendingHour = 0;
-uint8_t g_pendingMinute = 0;
-uint8_t g_pendingSecond = 0;
 
-DateTime currentLocalTime();
-
-void resetPendingTarget() {
-  g_pendingRaValid = false;
-  g_pendingDecValid = false;
-  g_pendingRaHours = 0.0;
-  g_pendingDecDegrees = 0.0;
-}
-
-void persistObserverLocation(double latitudeDeg, double longitudeDeg,
-                             int32_t timezoneMinutes) {
-  storage::setObserverLocation(latitudeDeg, longitudeDeg, timezoneMinutes);
-}
-
-void persistNetworkTime(const DateTime& localTime) {
-  time_t utcEpoch = time_utils::toUtcEpoch(localTime);
-  display_menu::applyNetworkTime(utcEpoch);
-}
-
-void queueTimezoneUpdate(int32_t timezoneMinutes) {
-  g_pendingTimezoneMinutes = timezoneMinutes;
-  g_pendingTimezoneUpdate = true;
-}
-
-void queueObserverLatitudeUpdate(double latitudeDeg) {
-  g_pendingLatitudeDeg = latitudeDeg;
-  g_pendingLatitudeUpdate = true;
-  g_pendingObserverLocationUpdate = true;
-}
-
-void queueObserverLongitudeUpdate(double longitudeDeg) {
-  g_pendingLongitudeDeg = longitudeDeg;
-  g_pendingLongitudeUpdate = true;
-  g_pendingObserverLocationUpdate = true;
-}
-
-void queueDateUpdate(uint16_t year, uint8_t month, uint8_t day) {
-  g_pendingYear = year;
-  g_pendingMonth = month;
-  g_pendingDay = day;
-  g_pendingDateUpdate = true;
-}
-
-void queueTimeUpdate(uint8_t hour, uint8_t minute, uint8_t second) {
-  g_pendingHour = hour;
-  g_pendingMinute = minute;
-  g_pendingSecond = second;
-  g_pendingTimeUpdate = true;
-}
-
-void processPendingUpdates() {
-  if (g_pendingObserverLocationUpdate || g_pendingTimezoneUpdate) {
-    const auto& config = storage::getConfig();
-    double latitude = g_pendingLatitudeUpdate ? g_pendingLatitudeDeg : config.observerLatitudeDeg;
-    double longitude = g_pendingLongitudeUpdate ? g_pendingLongitudeDeg : config.observerLongitudeDeg;
-    int32_t timezoneMinutes = g_pendingTimezoneUpdate ? g_pendingTimezoneMinutes : config.timezoneOffsetMinutes;
-
-    persistObserverLocation(latitude, longitude, timezoneMinutes);
-
-    g_pendingObserverLocationUpdate = false;
-    g_pendingLatitudeUpdate = false;
-    g_pendingLongitudeUpdate = false;
-    g_pendingTimezoneUpdate = false;
-  }
-
-  if (g_pendingDateUpdate || g_pendingTimeUpdate) {
-    DateTime base = currentLocalTime();
-
-    uint16_t year = g_pendingDateUpdate ? g_pendingYear : base.year();
-    uint8_t month = g_pendingDateUpdate ? g_pendingMonth : base.month();
-    uint8_t day = g_pendingDateUpdate ? g_pendingDay : base.day();
-
-    uint8_t hour = g_pendingTimeUpdate ? g_pendingHour : base.hour();
-    uint8_t minute = g_pendingTimeUpdate ? g_pendingMinute : base.minute();
-    uint8_t second = g_pendingTimeUpdate ? g_pendingSecond : base.second();
-
-    persistNetworkTime(DateTime(year, month, day, hour, minute, second));
-
-    g_pendingDateUpdate = false;
-    g_pendingTimeUpdate = false;
-  }
-}
-
-void clearClientState(bool notify) {
-  if (g_client) {
-    g_client.stop();
-  }
-  g_client = WiFiClient();
-  bool wasConnected = g_clientConnected;
-  g_clientConnected = false;
-  g_commandBuffer = "";
-  resetPendingTarget();
-  g_lastClientActivityMs = 0;
-  display_menu::setStellariumStatus(false, 0.0, 0.0);
-  if (notify && wasConnected) {
-    display_menu::showInfo("Stellarium getrennt", 2000);
-  }
-}
-
-String formatRa(double hours) {
-  double normalized = fmod(hours, 24.0);
-  if (normalized < 0.0) normalized += 24.0;
-  int h = static_cast<int>(normalized);
-  double minutesFloat = (normalized - h) * 60.0;
-  int m = static_cast<int>(minutesFloat);
-  int s = static_cast<int>((minutesFloat - m) * 60.0 + 0.5);
-  if (s >= 60) {
-    s -= 60;
-    m += 1;
-  }
-  if (m >= 60) {
-    m -= 60;
-    h = (h + 1) % 24;
-  }
+String formatHMS(uint8_t h, uint8_t m, uint8_t s) {
   char buffer[16];
-  snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d", h, m, s);
+  snprintf(buffer, sizeof(buffer), "%02u:%02u:%02u", h, m, s);
   return String(buffer);
 }
 
-String formatDec(double degrees) {
-  char sign = degrees >= 0.0 ? '+' : '-';
-  double absVal = fabs(degrees);
-  if (absVal > 90.0) absVal = 90.0;
-  int d = static_cast<int>(absVal);
-  double minutesFloat = (absVal - d) * 60.0;
-  int m = static_cast<int>(minutesFloat);
-  int s = static_cast<int>((minutesFloat - m) * 60.0 + 0.5);
-  if (s >= 60) {
-    s -= 60;
-    m += 1;
-  }
-  if (m >= 60) {
-    m -= 60;
-    d += 1;
-  }
+String formatDMS(int16_t d, uint8_t m, uint8_t s) {
+  char sign = d < 0 ? '-' : '+';
+  int16_t absD = d < 0 ? -d : d;
   char buffer[16];
-  snprintf(buffer, sizeof(buffer), "%c%02d*%02d:%02d", sign, d, m, s);
+  snprintf(buffer, sizeof(buffer), "%c%02d*%02u:%02u", sign, absD, m, s);
   return String(buffer);
 }
 
-String formatLatitude(double degrees) {
-  double clamped = std::clamp(degrees, -90.0, 90.0);
-  char sign = clamped >= 0.0 ? '+' : '-';
-  double absVal = fabs(clamped);
-  int d = static_cast<int>(absVal);
-  double minutesFloat = (absVal - d) * 60.0;
-  int m = static_cast<int>(minutesFloat + 0.5);
-  if (m >= 60) {
-    m = 0;
-    d = std::min(d + 1, 90);
-  }
-  char buffer[16];
-  snprintf(buffer, sizeof(buffer), "%c%02d*%02d", sign, d, m);
-  return String(buffer);
-}
-
-String formatLongitude(double degrees) {
-  double clamped = std::clamp(degrees, -180.0, 180.0);
-  char sign = clamped >= 0.0 ? '+' : '-';
-  double absVal = fabs(clamped);
-  int d = static_cast<int>(absVal);
-  double minutesFloat = (absVal - d) * 60.0;
-  int m = static_cast<int>(minutesFloat + 0.5);
-  if (m >= 60) {
-    m = 0;
-    d = std::min(d + 1, 180);
-  }
-  char buffer[16];
-  snprintf(buffer, sizeof(buffer), "%c%03d*%02d", sign, d, m);
-  return String(buffer);
-}
-
-bool parseRaCommand(const String& payload, double& hours) {
-  int firstColon = payload.indexOf(':');
-  int secondColon = payload.indexOf(':', firstColon + 1);
-  if (firstColon < 0) {
-    return false;
-  }
-  int h = payload.substring(0, firstColon).toInt();
-  int m = 0;
-  int s = 0;
-  if (secondColon < 0) {
-    m = payload.substring(firstColon + 1).toInt();
-  } else {
-    m = payload.substring(firstColon + 1, secondColon).toInt();
-    s = payload.substring(secondColon + 1).toInt();
-  }
-  if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) {
-    return false;
-  }
-  hours = h + m / 60.0 + s / 3600.0;
-  return true;
-}
-
-bool parseDecCommand(const String& payload, double& degrees) {
-  if (payload.length() < 4) {
-    return false;
-  }
-  char signChar = payload[0];
-  bool negative = false;
-  int start = 0;
-  if (signChar == '+' || signChar == '-') {
-    negative = signChar == '-';
-    start = 1;
-  }
-  int starIndex = payload.indexOf('*', start);
-  int colonIndex = payload.indexOf(':', starIndex + 1);
-  if (starIndex < 0) {
-    return false;
-  }
-  int d = payload.substring(start, starIndex).toInt();
-  int m = 0;
-  int s = 0;
-  if (colonIndex < 0) {
-    m = payload.substring(starIndex + 1).toInt();
-  } else {
-    m = payload.substring(starIndex + 1, colonIndex).toInt();
-    s = payload.substring(colonIndex + 1).toInt();
-  }
-  if (d < 0 || d > 90 || m < 0 || m > 59 || s < 0 || s > 59) {
-    return false;
-  }
-  double value = d + m / 60.0 + s / 3600.0;
-  degrees = negative ? -value : value;
-  return true;
-}
-
-bool parseLatitudeCommand(const String& payload, double& degrees) {
-  if (payload.length() < 4) {
-    return false;
-  }
-  char signChar = payload[0];
-  bool negative = false;
-  int start = 0;
-  if (signChar == '+' || signChar == '-') {
-    negative = signChar == '-';
-    start = 1;
-  }
-  int starIndex = payload.indexOf('*', start);
-  if (starIndex < 0) {
-    return false;
-  }
-  int colonIndex = payload.indexOf(':', starIndex + 1);
-  int d = payload.substring(start, starIndex).toInt();
-  int m = 0;
-  int s = 0;
-  if (colonIndex < 0) {
-    m = payload.substring(starIndex + 1).toInt();
-  } else {
-    m = payload.substring(starIndex + 1, colonIndex).toInt();
-    s = payload.substring(colonIndex + 1).toInt();
-  }
-  if (d < 0 || d > 90 || m < 0 || m > 59 || s < 0 || s > 59) {
-    return false;
-  }
-  double value = d + m / 60.0 + s / 3600.0;
-  degrees = negative ? -value : value;
-  return true;
-}
-
-bool parseLongitudeCommand(const String& payload, double& degrees) {
-  if (payload.length() < 5) {
-    return false;
-  }
-  char signChar = payload[0];
-  bool negative = false;
-  int start = 0;
-  if (signChar == '+' || signChar == '-') {
-    negative = signChar == '-';
-    start = 1;
-  }
-  int starIndex = payload.indexOf('*', start);
-  if (starIndex < 0) {
-    return false;
-  }
-  int colonIndex = payload.indexOf(':', starIndex + 1);
-  int d = payload.substring(start, starIndex).toInt();
-  int m = 0;
-  int s = 0;
-  if (colonIndex < 0) {
-    m = payload.substring(starIndex + 1).toInt();
-  } else {
-    m = payload.substring(starIndex + 1, colonIndex).toInt();
-    s = payload.substring(colonIndex + 1).toInt();
-  }
-  if (d < 0 || d > 180 || m < 0 || m > 59 || s < 0 || s > 59) {
-    return false;
-  }
-  double value = d + m / 60.0 + s / 3600.0;
-  degrees = negative ? -value : value;
-  return true;
-}
-
-DateTime currentLocalTime() { return display_menu::currentDateTime(); }
-
-String formatTime(const DateTime& local) {
-  char buffer[16];
-  snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d", local.hour(), local.minute(), local.second());
-  return String(buffer);
-}
-
-String formatDate(const DateTime& local) {
-  char buffer[16];
-  int twoDigitYear = local.year() % 100;
-  snprintf(buffer, sizeof(buffer), "%02d/%02d/%02d", local.month(), local.day(), twoDigitYear);
-  return String(buffer);
-}
-
-String handleCommand(const String& command) {
-  String trimmed = command;
-  trimmed.trim();
-  if (trimmed.length() < 2 || trimmed[0] != ':') {
-    return "";
-  }
-  String upper = trimmed;
-  upper.toUpperCase();
-
-  if (trimmed.startsWith(":St")) {
-    String payload = trimmed.substring(3);
-    double latitude = 0.0;
-    if (!parseLatitudeCommand(payload, latitude)) {
-      return "0";
-    }
-    queueObserverLatitudeUpdate(latitude);
-    return "1";
-  }
-  if (trimmed.startsWith(":Sg")) {
-    String payload = trimmed.substring(3);
-    double longitude = 0.0;
-    if (!parseLongitudeCommand(payload, longitude)) {
-      return "0";
-    }
-    queueObserverLongitudeUpdate(longitude);
-    return "1";
-  }
-  if (trimmed.startsWith(":Gt")) {
-    return formatLatitude(storage::getConfig().observerLatitudeDeg);
-  }
-  if (trimmed.startsWith(":Gg")) {
-    return formatLongitude(storage::getConfig().observerLongitudeDeg);
-  }
-
-  if (upper.startsWith(":GR")) {
-    double ra = 0.0;
-    double dec = 0.0;
-    if (!display_menu::computeCurrentEquatorial(ra, dec)) {
-      ra = 0.0;
-    }
-    return formatRa(ra);
-  }
-  if (upper.startsWith(":GD")) {
-    double ra = 0.0;
-    double dec = 0.0;
-    if (!display_menu::computeCurrentEquatorial(ra, dec)) {
-      dec = 0.0;
-    }
-    return formatDec(dec);
-  }
-  if (upper.startsWith(":SR")) {
-    String payload = upper.substring(3);
-    double ra = 0.0;
-    if (!parseRaCommand(payload, ra)) {
-      g_pendingRaValid = false;
-      return "0";
-    }
-    g_pendingRaHours = ra;
-    g_pendingRaValid = true;
-    return "1";
-  }
-  if (upper.startsWith(":SD")) {
-    String payload = upper.substring(3);
-    double dec = 0.0;
-    if (!parseDecCommand(payload, dec)) {
-      g_pendingDecValid = false;
-      return "0";
-    }
-    g_pendingDecDegrees = dec;
-    g_pendingDecValid = true;
-    return "1";
-  }
-  if (upper.startsWith(":MS")) {
-    if (!g_pendingRaValid || !g_pendingDecValid) {
-      return "1";
-    }
-    bool ok = display_menu::requestGotoFromNetwork(g_pendingRaHours, g_pendingDecDegrees,
-                                                   "Stellarium");
-    if (ok) {
-      resetPendingTarget();
-    }
-    return ok ? "0" : "1";
-  }
-  if (upper.startsWith(":Q")) {
-    display_menu::abortGotoFromNetwork();
-    display_menu::stopTracking();
-    motion::stopAll();
-    return "";
-  }
-  if (upper.startsWith(":GVP")) {
-    return String("NERDSTAR");
-  }
-  if (upper.startsWith(":GVN")) {
-    return String("1.0");
-  }
-  if (upper.startsWith(":GVD")) {
-    return String("2024-01-01");
-  }
-  if (upper.startsWith(":GVT")) {
-    return formatTime(currentLocalTime());
-  }
-  if (upper.startsWith(":GG")) {
-    int32_t tzMinutes = storage::getConfig().timezoneOffsetMinutes;
-    int tzHours = static_cast<int>(round(tzMinutes / 60.0));
-    char buffer[8];
-    snprintf(buffer, sizeof(buffer), "%+03d", tzHours);
-    return String(buffer);
-  }
-  if (upper.startsWith(":GL")) {
-    return formatTime(currentLocalTime());
-  }
-  if (upper.startsWith(":GC")) {
-    return formatDate(currentLocalTime());
-  }
-  if (upper.startsWith(":GW")) {
-    return String("0");
-  }
-  if (upper.startsWith(":D")) {
-    return String("0");
-  }
-  if (upper.startsWith(":SG")) {
-    String payload = upper.substring(3);
-    double hours = payload.toFloat();
-    if (!isfinite(hours) || fabs(hours) > 14.0) {
-      return "0";
-    }
-    int32_t minutes = static_cast<int32_t>(round(hours * 60.0));
-    minutes = std::clamp<int32_t>(minutes, -720, 840);
-    queueTimezoneUpdate(minutes);
-    return "1";
-  }
-  if (upper.startsWith(":SL")) {
-    String payload = upper.substring(3);
-    int firstColon = payload.indexOf(':');
-    int secondColon = payload.indexOf(':', firstColon + 1);
-    if (firstColon < 0 || secondColon < 0) {
-      return "0";
-    }
-    int h = payload.substring(0, firstColon).toInt();
-    int m = payload.substring(firstColon + 1, secondColon).toInt();
-    int s = payload.substring(secondColon + 1).toInt();
-    if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) {
-      return "0";
-    }
-    queueTimeUpdate(static_cast<uint8_t>(h), static_cast<uint8_t>(m), static_cast<uint8_t>(s));
-    return "1";
-  }
-  if (upper.startsWith(":SC")) {
-    String payload = upper.substring(3);
-    int firstSlash = payload.indexOf('/');
-    int secondSlash = payload.indexOf('/', firstSlash + 1);
-    if (firstSlash < 0 || secondSlash < 0) {
-      return "0";
-    }
-    int month = payload.substring(0, firstSlash).toInt();
-    int day = payload.substring(firstSlash + 1, secondSlash).toInt();
-    int year = payload.substring(secondSlash + 1).toInt();
-    if (month < 1 || month > 12 || day < 1 || day > 31) {
-      return "0";
-    }
-    int fullYear = 2000 + (year % 100);
-    queueDateUpdate(static_cast<uint16_t>(fullYear), static_cast<uint8_t>(month), static_cast<uint8_t>(day));
-    return "1";
-  }
-  return "";
-}
-
-void sendResponse(const String& response) {
-  if (!g_client || response.isEmpty()) {
+void writeReply(const String& payload) {
+  if (!g_client || !g_client.connected()) {
     return;
   }
-  g_client.print(response);
+  g_client.print(payload);
   g_client.print('#');
 }
 
-void handleClientInput() {
-  constexpr size_t kMaxBytesPerUpdate = 128;
-  constexpr uint32_t kMaxHandleDurationMs = 10;
-  uint32_t startMs = millis();
-  size_t processed = 0;
+void handleCommand(const String& cmd) {
+  if (cmd == ":Q") {
+    motion::stopAll();
+    writeReply("1");
+    return;
+  }
 
-  while (g_client && g_client.connected() && g_client.available() > 0) {
-    int raw = g_client.read();
-    if (raw < 0) {
-      break;
-    }
-    g_lastClientActivityMs = millis();
+  if (cmd == ":GR") {
+    time_t utc = time_utils::currentUtcEpoch();
+    DateTime now(utc);
+    writeReply(formatHMS(now.hour(), now.minute(), now.second()));
+    return;
+  }
 
-    // LX200 handshake / tracking query (used by Stellarium Mobile)
-    if (raw == 0x06) {
-      // 'L' = tracking off, 'P' = tracking on. Report tracking enabled.
-      g_client.write('P');
-      continue;
-    }
+  if (cmd == ":GD") {
+    writeReply(formatDMS(0, 0, 0));
+    return;
+  }
 
-    char c = static_cast<char>(raw);
-    if (c == '\r' || c == '\n') {
-      continue;
-    }
-    if (c == ':') {
-      g_commandBuffer = ":";
-      continue;
-    }
-    if (g_commandBuffer.isEmpty()) {
-      continue;
-    }
+  if (cmd.startsWith(":SC")) {
+    // Date command accepted for compatibility.
+    writeReply("1");
+    return;
+  }
+
+  if (cmd.startsWith(":SL")) {
+    // Time command accepted for compatibility.
+    writeReply("1");
+    return;
+  }
+
+  writeReply("0");
+}
+
+void processClient() {
+  while (g_client && g_client.connected() && g_client.available()) {
+    char c = static_cast<char>(g_client.read());
     if (c == '#') {
-      String command = g_commandBuffer;
+      handleCommand(g_commandBuffer);
       g_commandBuffer = "";
-      String response = handleCommand(command);
-      sendResponse(response);
-    } else {
-      if (g_commandBuffer.length() >= 64) {
-        g_commandBuffer = "";
-      } else {
+    } else if (isPrintable(static_cast<unsigned char>(c))) {
+      if (g_commandBuffer.length() < 96) {
         g_commandBuffer += c;
       }
     }
-
-    ++processed;
-    if (processed >= kMaxBytesPerUpdate ||
-        (millis() - startMs) >= kMaxHandleDurationMs) {
-      break;
-    }
   }
-}
-
-void acceptNewClient() {
-  if (!g_server.hasClient()) {
-    return;
-  }
-  WiFiClient candidate = g_server.available();
-  if (!candidate) {
-    return;
-  }
-  if (g_clientConnected) {
-    clearClientState(false);
-  }
-  g_client = std::move(candidate);
-  g_client.setNoDelay(true);
-  g_clientConnected = true;
-  g_commandBuffer = "";
-  resetPendingTarget();
-  g_lastClientActivityMs = millis();
-  display_menu::showInfo("Stellarium verbunden", 2000);
-}
-
-void updateDisplayStatus() {
-  if (!g_clientConnected) {
-    display_menu::setStellariumStatus(false, 0.0, 0.0);
-    return;
-  }
-  double ra = 0.0;
-  double dec = 0.0;
-  if (!display_menu::computeCurrentEquatorial(ra, dec)) {
-    ra = 0.0;
-    dec = 0.0;
-  }
-  display_menu::setStellariumStatus(true, ra, dec);
 }
 
 }  // namespace
 
 void init() {
+  g_server.begin();
   g_server.setNoDelay(true);
-  g_accessPointActive = false;
-  g_clientConnected = false;
-  g_commandBuffer = "";
-  resetPendingTarget();
-  display_menu::setStellariumStatus(false, 0.0, 0.0);
-  WiFi.persistent(false);
-  WiFi.mode(WIFI_OFF);
-  WiFi.softAPdisconnect(true);
-  WiFi.disconnect(true, true);
-  g_accessPointIp = IPAddress();
+}
+
+void update() {
+  if (!g_client || !g_client.connected()) {
+    WiFiClient candidate = g_server.available();
+    if (candidate) {
+      g_client.stop();
+      g_client = candidate;
+      g_commandBuffer = "";
+    }
+  }
+  processClient();
 }
 
 bool enableAccessPoint() {
   if (g_accessPointActive) {
     return true;
   }
-  wifi_ota::setEnabled(false);
-  WiFi.softAPdisconnect(true);
-  WiFi.disconnect(true, true);
-  WiFi.mode(WIFI_MODE_AP);
-  bool ok = WiFi.softAP(config::WIFI_AP_SSID, config::WIFI_AP_PASSWORD, config::WIFI_AP_CHANNEL,
-                        false, 1);
+
+  if (wifi_ota::isEnabled()) {
+    wifi_ota::setEnabled(false);
+  }
+
+  WiFi.mode(WIFI_AP);
+  bool ok = WiFi.softAP(config::WIFI_AP_SSID, config::WIFI_AP_PASSWORD,
+                        config::WIFI_AP_CHANNEL);
   if (!ok) {
-    WiFi.mode(WIFI_OFF);
-    g_accessPointIp = IPAddress();
     return false;
   }
-  g_accessPointIp = WiFi.softAPIP();
-  g_server.begin();
   g_accessPointActive = true;
+  g_accessPointIp = WiFi.softAPIP();
   return true;
 }
 
 void disableAccessPoint() {
   if (!g_accessPointActive) {
-    clearClientState(false);
     return;
   }
-  clearClientState(false);
   WiFi.softAPdisconnect(true);
-  WiFi.disconnect(true, true);
   WiFi.mode(WIFI_OFF);
   g_accessPointActive = false;
   g_accessPointIp = IPAddress();
@@ -666,7 +137,7 @@ void disableAccessPoint() {
 
 bool accessPointActive() { return g_accessPointActive; }
 
-bool clientConnected() { return g_clientConnected; }
+bool clientConnected() { return g_client && g_client.connected(); }
 
 const char* accessPointSsid() { return config::WIFI_AP_SSID; }
 
@@ -677,36 +148,12 @@ String accessPointIp() {
   return g_accessPointIp.toString();
 }
 
-void forceDisconnectClient() { clearClientState(true); }
-
-void update() {
-  if (!g_accessPointActive) {
-    if (g_clientConnected) {
-      clearClientState(false);
-    }
-    return;
+void forceDisconnectClient() {
+  if (g_client) {
+    g_client.stop();
   }
-
-  if (g_clientConnected && (!g_client || !g_client.connected())) {
-    clearClientState(true);
-    return;
-  }
-
-  acceptNewClient();
-  if (g_clientConnected) {
-    handleClientInput();
-    if (kClientIdleTimeoutMs > 0 && g_lastClientActivityMs != 0) {
-      uint32_t now = millis();
-      if (now - g_lastClientActivityMs >= kClientIdleTimeoutMs) {
-        clearClientState(true);
-        return;
-      }
-    }
-  }
-  processPendingUpdates();
-  updateDisplayStatus();
+  g_client = WiFiClient();
+  g_commandBuffer = "";
 }
 
 }  // namespace stellarium_link
-
-#endif  // DEVICE_ROLE_HID
