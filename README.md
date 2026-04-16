@@ -18,6 +18,7 @@ This revision rebuilds the motion model around **equatorial movement math**:
 - Backlash compensation per axis with configurable take-up rate
 - EEPROM-backed configuration (calibration, inversion, backlash)
 - UART command protocol between controller roles
+- LX200-compatible control over USB serial (Stellarmate/INDI compatible)
 - Optional Stellarium LX200-compatible TCP bridge
 - RTC support and OTA/Wi-Fi utility hooks
 
@@ -63,6 +64,18 @@ Tracking:
 - `SET_TRACKING_RATES <ra_deg_per_sec> <dec_deg_per_sec>`
 
 ---
+
+### LX200 control (Stellarmate via USB)
+
+NERDSTAR now accepts LX200 commands over the USB serial connection (`Serial`) in addition to the TCP bridge.
+
+Implemented LX200 command groups include:
+- Position queries: `:GR#`, `:GD#`
+- Target setup + GoTo: `:SrHH:MM:SS#`, `:Sd+DD*MM:SS#`, `:MS#`
+- Manual slewing: `:Mn#`, `:Ms#`, `:Me#`, `:Mw#`, stop with `:Qn#`, `:Qs#`, `:Qe#`, `:Qw#`, `:Q#`
+- Compatibility acknowledgements: `:SC...#`, `:SL...#`
+
+This allows Stellarmate's LX200-compatible drivers to control Nerdstar directly over USB.
 
 ## Build
 
