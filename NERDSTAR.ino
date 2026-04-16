@@ -25,12 +25,20 @@ void initSerial() {
 }
 
 bool parseAxis(const String& value, Axis& outAxis) {
+  if (value.equalsIgnoreCase("RA")) {
+    outAxis = Axis::Ra;
+    return true;
+  }
+  if (value.equalsIgnoreCase("DEC")) {
+    outAxis = Axis::Dec;
+    return true;
+  }
   if (value.equalsIgnoreCase("AZ")) {
-    outAxis = Axis::Az;
+    outAxis = Axis::Ra;
     return true;
   }
   if (value.equalsIgnoreCase("ALT")) {
-    outAxis = Axis::Alt;
+    outAxis = Axis::Dec;
     return true;
   }
   return false;
@@ -115,9 +123,9 @@ void handleRequest(const comm::Request& request) {
 
   if (cmd == "SET_TRACKING_RATES") {
     if (!requireParams(2)) return;
-    double azDegPerSec = strtod(request.params[0].c_str(), nullptr);
-    double altDegPerSec = strtod(request.params[1].c_str(), nullptr);
-    motion::setTrackingRates(azDegPerSec, altDegPerSec);
+    double raDegPerSec = strtod(request.params[0].c_str(), nullptr);
+    double decDegPerSec = strtod(request.params[1].c_str(), nullptr);
+    motion::setTrackingRates(raDegPerSec, decDegPerSec);
     comm::sendResponse(request.id, {"OK"});
     return;
   }
@@ -140,31 +148,31 @@ void handleRequest(const comm::Request& request) {
     return;
   }
 
-  if (cmd == "STEPS_TO_AZ") {
+  if (cmd == "STEPS_TO_RA" || cmd == "STEPS_TO_AZ") {
     if (!requireParams(1)) return;
     int64_t steps = static_cast<int64_t>(strtoll(request.params[0].c_str(), nullptr, 10));
-    comm::sendResponse(request.id, {formatDouble(motion::stepsToAzDegrees(steps))});
+    comm::sendResponse(request.id, {formatDouble(motion::stepsToRaDegrees(steps))});
     return;
   }
 
-  if (cmd == "STEPS_TO_ALT") {
+  if (cmd == "STEPS_TO_DEC" || cmd == "STEPS_TO_ALT") {
     if (!requireParams(1)) return;
     int64_t steps = static_cast<int64_t>(strtoll(request.params[0].c_str(), nullptr, 10));
-    comm::sendResponse(request.id, {formatDouble(motion::stepsToAltDegrees(steps))});
+    comm::sendResponse(request.id, {formatDouble(motion::stepsToDecDegrees(steps))});
     return;
   }
 
-  if (cmd == "AZ_TO_STEPS") {
+  if (cmd == "RA_TO_STEPS" || cmd == "AZ_TO_STEPS") {
     if (!requireParams(1)) return;
-    double azDeg = strtod(request.params[0].c_str(), nullptr);
-    comm::sendResponse(request.id, {String(motion::azDegreesToSteps(azDeg))});
+    double raDeg = strtod(request.params[0].c_str(), nullptr);
+    comm::sendResponse(request.id, {String(motion::raDegreesToSteps(raDeg))});
     return;
   }
 
-  if (cmd == "ALT_TO_STEPS") {
+  if (cmd == "DEC_TO_STEPS" || cmd == "ALT_TO_STEPS") {
     if (!requireParams(1)) return;
-    double altDeg = strtod(request.params[0].c_str(), nullptr);
-    comm::sendResponse(request.id, {String(motion::altDegreesToSteps(altDeg))});
+    double decDeg = strtod(request.params[0].c_str(), nullptr);
+    comm::sendResponse(request.id, {String(motion::decDegreesToSteps(decDeg))});
     return;
   }
 
@@ -201,7 +209,7 @@ void handleRequest(const comm::Request& request) {
   if (cmd == "GET_BACKLASH") {
     comm::sendResponse(
         request.id,
-        {String(motion::getBacklashSteps(Axis::Az)), String(motion::getBacklashSteps(Axis::Alt))});
+        {String(motion::getBacklashSteps(Axis::Ra)), String(motion::getBacklashSteps(Axis::Dec))});
     return;
   }
 

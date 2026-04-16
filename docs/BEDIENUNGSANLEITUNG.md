@@ -1,184 +1,92 @@
-# Bedienungsanleitung NERDSTAR
+# NERDSTAR eQ – Bedienungsanleitung
 
-Diese Anleitung führt dich Schritt für Schritt durch Inbetriebnahme und Bedienung des NERDSTAR-Teleskopcontrollers.
+Diese Anleitung beschreibt die aktuelle **equatoriale (RA/Dec)** Firmware.
 
-## 1. Vorbereitung
+## 1) Überblick
 
-1. **Hardware prüfen**
-   - ESP32 mit TMC2209-Treibern für Azimut- und Höhenachse (Alt/Az)
-   - OLED-Display (SSD1306), Rotary-Encoder, KY-023-Joystick
-   - DS3231-RTC (I²C)
-   - LM2596 Step-Down-Modul zur Versorgung der 5 V-Schiene aus 12 V
-2. **Katalog**
-   - Der komplette Objektkatalog liegt fest im EEPROM. Eine SD-Karte ist nicht mehr erforderlich.
-   - Anpassungen erfolgen über [`data/catalog.xml`](../data/catalog.xml); anschließend muss die Firmware neu gebaut werden.
-   - Beim Bauen entsteht daraus `catalog_data.inc`, das in die HID-Firmware eingebettet wird. Beim ersten Start schreibt die Firmware den Katalog automatisch in den emulierten EEPROM-Bereich des ESP32 (4 KB Flash). Dort bleibt er auch nach Firmware-Updates erhalten.
-3. **WLAN (optional)**
-   - Zugangsdaten können in [`data/eeprom_template.json`](../data/eeprom_template.json) hinterlegt werden.
-   - Beim Flashen der vorbereiteten EEPROM-Daten stehen die Credentials beiden Controllern für WiFi OTA & NTP zur Verfügung.【F:data/eeprom_template.json†L1-L6】
-   - Zusätzlich kann der HID-ESP32 jederzeit einen eigenen Access Point (`SSID = "NERDSTAR"`, `Passwort = "stardust42"`) für Stellarium starten – ganz ohne Hausnetz.
-4. **Geräterolle wählen**
-   - In [`role_config.h`](../role_config.h) wird gesteuert, welche Variante kompiliert wird. Standardmäßig ist `DEVICE_ROLE_HID` aktiv.
-   - Für das Hauptsteuerungs-Board beim Kompilieren den Define `DEVICE_ROLE_MAIN` setzen (z. B. `arduino-cli compile --build-property build.extra_flags=-DDEVICE_ROLE_MAIN`). Alternativ kann der Define temporär vor dem `#include "role_config.h"` in `NERDSTAR.ino` ergänzt werden.
-   - Nach dem Flashen der Main-Firmware wieder den HID-Build ohne zusätzliche Defines kompilieren, um die HID-Einheit zu aktualisieren.
-5. **Verdrahtung gemäß Pinbelegung**
-   - **ESP32 (Hauptrechner)** → Steppertreiber
-     - RA-Treiber: STEP 25, DIR 26, EN 27
-     - DEC-Treiber: STEP 12, DIR 13, EN 14
-     - PDN/UART (MS1) & MS2 der TMC2209 mit Pull-ups (z. B. 10 kΩ nach VIO) auf HIGH legen → 1/16 Mikroschritt fest eingestellt
-     - Gemeinsame Versorgung 5 V und GND zu beiden TMC2209-Modulen
-   - **ESP32-WROOM (HID)** → Eingabe- & Anzeigeeinheit
-     - OLED & RTC: SDA 22 / SCL 21 (I²C, 3.3 V/GND)
-     - Rotary-Encoder: A 18, B 19, Button 23
-     - Joystick: VRx 34, VRy 35, Button 27 (LOW-aktiv, interner Pull-up verfügbar)
-   - **ESP32 ↔ ESP32-WROOM (UART-Link)**
-     - Main-TX (17) → HID-RX (16), Main-RX (16) ← HID-TX (17)
-     - Gemeinsame Masse verbinden (GND ↔ GND)
-     - Hinweis: Der Link nutzt einen dedizierten Hardware-UART. USB-Debug-Ausgaben bleiben unabhängig.
-   - **Stromversorgung**
-     - 12 V-Eingang speist die VM-Pins beider TMC2209 sowie den Eingang des LM2596.
-     - LM2596-Ausgang auf stabile 5 V einstellen; damit den ESP32 (Main) und über dessen 5 V-Pin die HID-Einheit versorgen.
-     - Alle Masseleitungen sternförmig auf einen gemeinsamen Punkt führen.
-6. **Entstörkondensatoren setzen**
-   | Position | Typ | Wert | Anschluss | Zweck |
-   | --- | --- | --- | --- | --- |
-   | Direkt am LM2596-Eingang | Elektrolyt | 47 µF | VIN+↔GND (LM2596) | Stützt bei Spannungseinbrüchen |
-   | Direkt am LM2596-Eingang | Keramik | 100 nF | VIN+↔GND (LM2596) | Filtert Hochfrequenzstörungen |
-   | Direkt am LM2596-Ausgang | Elektrolyt | 22 µF | VOUT+↔GND (LM2596) | Stabilisiert die Regelschleife |
-   | Direkt am LM2596-Ausgang | Keramik | 100 nF | VOUT+↔GND (LM2596) | Fängt hochfrequente Störungen ab |
-   | An jedem IC (ESP32, RTC, Sensoren) | Keramik | 100 nF | VCC↔GND (je IC) | Lokale HF-Entkopplung |
-   | Bei der Motorversorgung (TMC2209) | Elko + Keramik | 100 µF + 100 nF | VM↔GND (je TMC2209) | Dämpft Versorgungsspitzen der Motoren |
-7. **Firmware flashen**
-   - Bibliotheken installieren (`Adafruit_SSD1306`, `Adafruit_GFX`, `RTClib`)
-   - Sketch `NERDSTAR.ino` mit den neuen Modulen kompilieren und auf die Boards flashen (HID & Main: Board `ESP32 Dev Module`).
-   - USB-Seriell (115200 Baud) zeigt beim Booten Statusmeldungen beider Controller.
+NERDSTAR eQ steuert zwei Schrittmotorachsen:
+- **RA (Rektaszension)**
+- **Dec (Deklination)**
 
-## 2. Erstinbetriebnahme
+Die Bewegungslogik ist auf RA/Dec ausgelegt. Alte Alt/Az-Bezeichner werden nur noch als Kompatibilitätsalias akzeptiert.
 
-1. **Systemstart**
-   - Nach dem Booten meldet sich das OLED mit "NERDSTAR ready".
-2. **Joystick-Kalibrierung**
-   - Beim ersten Start läuft automatisch eine Mittelwert-Kalibrierung.
-   - Der Mittelpunkt wird im EEPROM gespeichert und kann jederzeit über das Setup-Menü neu gesetzt werden.
-3. **Achsen kalibrieren (optional, empfohlen)**
-   - Über `Setup → Cal Axes` lässt sich die Schrittauflösung exakt einstellen.
-   - Schritte siehe Abschnitt 5.4.
-4. **RTC-Uhrzeit prüfen**
-   - Falls die RTC noch nicht gesetzt ist, `Setup → Set RTC` wählen.
+---
 
-## 3. Menüsteuerung
+## 2) Achsenlogik & Grenzen
 
-- **Rotary-Encoder drehen** → Menüpunkt wechseln / Werte anpassen
-- **Rotary-Encoder drücken** → Auswahl bestätigen / Goto starten / RTC speichern
-- **Joystick drücken** → Kontextabhängig (z. B. zurück zum Hauptmenü, Abbruch, Stop)
-- **Joystick bewegen** → Manuelles Nachführen, sofern kein Goto aktiv ist
+- **RA** läuft zyklisch (0–360°).
+- **Dec** hat in der aktuellen Firmware **keine softwareseitige Soft-Begrenzung**.
+- Tracking-Raten werden in **Grad/Sekunde auf RA und Dec** angegeben.
 
-## 4. Hauptmenü
+Wichtige Umrechnungen:
+- `stepsToRaDegrees()` / `raDegreesToSteps()`
+- `stepsToDecDegrees()` / `decDegreesToSteps()`
 
-| Menüpunkt        | Funktion                                                                                   |
-| ---------------- | ------------------------------------------------------------------------------------------- |
-| Status           | Zeigt Az/Alt, Align-/Tracking-Status, gewähltes Ziel sowie Diagnosewerte an.【F:display_menu.cpp†L565-L610】 |
-| Polar Align      | Führt durch die Polaris-Ausrichtung. Encoder drücken = bestätigen, Joystick drücken = Abbruch |
-| Start Tracking   | Aktiviert siderische Nachführung (nur nach erfolgreicher Ausrichtung)                       |
-| Stop Tracking    | Stoppt die Nachführung                                                                      |
-| Catalog          | Erst Kategorie wählen (z.B. Planet/Stern), dann Objekt blättern; Encoder = Goto, Joystick = zurück zur Kategorie |
-| Goto Selected    | Startet die automatische Bewegung zum zuletzt gemerkten Objekt (siehe Abschnitt 6)          |
-| Goto RA/Dec      | Manuelle Zielkoordinaten eingeben und direkt anfahren (siehe Abschnitt 6).【F:display_menu.cpp†L1287-L1446】 |
-| Park             | Fährt die Höhe sicher auf das obere Limit und stoppt die Bewegung.【F:display_menu.cpp†L2045-L2086】 |
-| Setup            | Öffnet das Setup-Menü                                                                       |
+Kompatibilität:
+- `stepsToAzDegrees()` entspricht intern `stepsToRaDegrees()`
+- `stepsToAltDegrees()` entspricht intern `stepsToDecDegrees()`
 
-## 5. Setup-Menü
+---
 
-### 5.1 RTC einstellen
-1. `Setup → Set RTC` wählen.
-2. Encoder drehen verändert den jeweils markierten Wert (Jahr → Monat → … → Sekunde).
-3. Joystick drücken springt zum nächsten Feld (inklusive DST-Auswahl „Off/On/Auto“).【F:display_menu.cpp†L748-L803】
-4. Encoder drücken speichert Zeit & DST-Modus im RTC/EEPROM.【F:display_menu.cpp†L1587-L1611】
+## 3) Inbetriebnahme
 
-### 5.2 Standort setzen
-1. `Setup → Set Location` aufrufen.
-2. Encoder drehen passt Breitengrad, Längengrad (Ost positiv, in 0,1°) sowie die Zeitzone (15-Minuten-Schritte) an.【F:display_menu.cpp†L805-L854】
-3. Joystick drücken wechselt zum nächsten Feld, inklusive „Save/Back“.
-4. Encoder drücken bestätigt; „Save“ schreibt die Werte dauerhaft in den EEPROM.【F:display_menu.cpp†L1238-L1284】
+1. Firmware für die passende Rolle bauen (typisch Main-Controller mit `DEVICE_ROLE_MAIN`).
+2. Hardware gemäß `config.h` verdrahten.
+3. Starten und Serielle Ausgabe prüfen (`[MAIN] Boot`, danach `[MAIN] Ready`).
+4. Kalibrierung, Motorinvertierung und Backlash konfigurieren.
 
-### 5.3 Joystick kalibrieren
-1. `Setup → Cal Joystick` wählt den Kalibriermodus.
-2. Den Joystick loslassen, damit er mittig steht.
-3. Nach ca. einer Sekunde werden neue Mittelwerte angezeigt und gespeichert.
+Empfehlung nach Umbau von Alt/Az auf eQ:
+- Achsen neu nullen
+- Schritte/Grad neu einmessen
+- Backlash- und Invert-Werte neu prüfen
 
-### 5.4 Achsen kalibrieren
-1. `Setup → Cal Axes` starten. Die Anzeige führt durch vier Schritte:
-   - **Set Az 0deg**: Teleskop in Richtung geografischer Norden (Azimut 0°) stellen, Encoder drücken.
-   - **Rotate +90deg**: Mit Joystick/Encoder exakt 90° nach Osten drehen, Encoder drücken.
-   - **Set Alt 0deg**: Teleskop auf Horizont (Alt 0°) ausrichten, Encoder drücken.
-   - **Rotate +45deg**: Genau +45° in der Höhe anheben, Encoder drücken.
-2. Die Software berechnet Schritte pro Grad für Azimut und Höhe, setzt Nullpunkte und speichert alles im EEPROM.
-3. Bei inkonsistenten Werten erscheint "Cal failed" – Vorgang ggf. wiederholen.
+---
 
-### 5.5 Goto-Geschwindigkeit einstellen
-1. `Setup → Goto Speed` öffnet die Parameter für Maximalgeschwindigkeit, Beschleunigung und Abbremsen (jeweils in °/s bzw. °/s²).【F:display_menu.cpp†L1051-L1079】
-2. Mit dem Encoder den markierten Wert ändern, Joystick drücken wechselt zum nächsten Feld.【F:display_menu.cpp†L1182-L1218】
-3. Encoder drücken speichert das Profil dauerhaft. Angepasste Werte wirken auf beide Achsen.【F:display_menu.cpp†L1219-L1234】
+## 4) Serielle Kommandos
 
-### 5.6 Pan-Geschwindigkeit einstellen
-1. `Setup → Pan Speed` bearbeiten, um Joystick-Fahrten anzupassen (Aufbau wie `Goto Speed`).【F:display_menu.cpp†L1171-L1179】【F:display_menu.cpp†L1051-L1079】
-2. Werte gelten für manuelles Slewen beider Achsen.【F:display_menu.cpp†L1182-L1234】
+### 4.1 Achsenparameter
 
-### 5.7 Umkehrspiel (Backlash) kalibrieren
-1. `Setup → Cal Backlash` öffnen. Das Menü bietet drei editierbare Werte:
-   - **Az steps**: Umkehrspiel der Azimut-Achse in Schritten
-   - **Alt steps**: Umkehrspiel der Höhenachse in Schritten
-   - **Takeup/s**: Geschwindigkeit, mit der das Spiel nach einem Richtungswechsel aufgenommen wird (Schritte pro Sekunde)
-2. Mit dem Encoder den markierten Wert ändern. Encoder drücken wechselt zum nächsten Feld; im letzten Feld wählst du `Save` oder `Back`.
-3. Joystick-Taste bricht jederzeit ohne Speichern ab.
-4. Beim Speichern werden Backlash-Werte und Takeup-Rate dauerhaft abgelegt und sofort für Richtungswechsel übernommen. Eine höhere Takeup-Rate reagiert direkter, eine niedrigere weicher.
-5. Als sinnvoller Startwert nutzt die Firmware standardmäßig **259 Mikroschritte** Backlash und **1036 Schritte/s** Takeup-Geschwindigkeit. Das entspricht ungefähr **35 arcmin** Spiel an der 50:1-Getriebestufe und einer Aufholzeit von rund **0,25 s**.
+Folgende Achsnamen sind gültig:
+- Neu: `RA`, `DEC`
+- Alt (Alias): `AZ`, `ALT`
 
-### 5.8 WiFi OTA
-1. `Setup → WiFi OTA` zeigt den aktuellen Status (`NoCfg`, `Off`, `Conn`, `On`).【F:display_menu.cpp†L724-L737】
-2. Encoder drücken schaltet WLAN für beide ESP32 um, sofern Credentials vorhanden sind. Bei Erfolg erscheinen SSID oder Fehlerhinweise.【F:display_menu.cpp†L2248-L2281】
-3. Aktives WLAN ermöglicht OTA-Updates und wiederholte NTP-Synchronisation der Systemzeit.【F:wifi_ota.cpp†L64-L149】
+### 4.2 Nützliche Kommandos
 
-### 5.9 WiFi Access Point
-1. `Setup → WiFi AP` startet oder stoppt den integrierten Access Point (`SSID = "NERDSTAR"`, `Passwort = "stardust42"`).【F:config.h†L54-L60】
-2. Die Menüzeile zeigt `Off`, `On` oder `Conn` – so erkennst du sofort, ob das iPhone bereits verbunden ist.【F:display_menu.cpp†L1448-L1485】
-3. Ist der AP aktiv, blendet dieselbe Zeile automatisch die Host-IP (typischerweise `192.168.4.1`) ein – diese Adresse muss in Stellarium als Host eingetragen werden.【F:display_menu.cpp†L1466-L1485】
-4. Beim Aktivieren wird ein eventuell laufendes OTA-/NTP-WLAN automatisch abgeschaltet; genau so deaktiviert sich der AP wieder, wenn du WiFi OTA einschaltest.【F:display_menu.cpp†L3309-L3331】
+- `SET_MANUAL_SPS <AXIS> <steps_per_second>`
+- `SET_GOTO_SPS <AXIS> <steps_per_second>`
+- `SET_TRACKING_ENABLED <0|1>`
+- `SET_TRACKING_RATES <ra_deg_per_sec> <dec_deg_per_sec>`
+- `STOP_ALL`
 
-### 5.10 Stellarium-Link
-1. Nach erfolgreicher WLAN-Verbindung in Stellarium Plus einen neuen Teleskop-Eintrag mit Protokoll „Meade LX200“ (oder „Stellarium Telescope“) anlegen und Port `10001` verwenden.【F:config.h†L62-L64】
-2. Sobald die Verbindung steht, erscheint `Stellarium: On` inklusive der laufend berechneten IST-RA/Dec auf dem Statusbildschirm.【F:display_menu.cpp†L1168-L1198】
-3. Du kannst jederzeit weiter mit dem Joystick slewen; Stellarium-Kommandos werden einfach zusätzlich entgegengenommen und starten bei Bedarf ein automatisches Goto.【F:stellarium_link.cpp†L75-L137】
-4. `Setup → Stellarium` trennt die aktuelle Sitzung gezielt – praktisch, wenn du vom Rotary-Encoder aus die Verbindung beenden möchtest.【F:display_menu.cpp†L1478-L1498】【F:display_menu.cpp†L3332-L3344】
+Koordinaten/Schritte:
+- `STEPS_TO_RA <steps>` (Alias: `STEPS_TO_AZ`)
+- `STEPS_TO_DEC <steps>` (Alias: `STEPS_TO_ALT`)
+- `RA_TO_STEPS <deg>` (Alias: `AZ_TO_STEPS`)
+- `DEC_TO_STEPS <deg>` (Alias: `ALT_TO_STEPS`)
 
-## 6. Katalog und Goto
+---
 
-1. `Catalog` öffnen, mit dem Encoder zuerst die gewünschte Kategorie (z.B. Planet, Stern, Nebel) wählen.
-2. Encoder drücken öffnet die Objektliste der Kategorie; dort mit dem Encoder blättern.
-3. Encoder drücken startet unmittelbar ein Goto zum angezeigten Objekt. Die Software plant die Ankunftszeit vor, damit Zielkoordinaten zum Ende der Fahrt stimmen.
-4. Ziele unter dem Horizont werden automatisch blockiert (Anzeige "Below horizon").
-5. Während eines Goto ist Tracking deaktiviert; Joystick-Taste bricht jederzeit ab.
-6. Nach Abschluss erscheinen "Goto done" und die Nachführung wird automatisch mit dem Ziel als Referenz aktiviert.
-7. Im Hauptmenü kann `Goto Selected` genutzt werden, um das zuletzt gewählte Objekt erneut anzufahren.
+## 5) Stellarium
 
-**Manuelles Goto**: Über `Goto RA/Dec` lassen sich Koordinaten (RA hh:mm:ss, Dec ±dd:mm:ss) direkt eingeben. Der Joystick wechselt das Feld, der Encoder verändert die Werte. Nach Bestätigung fährt der Controller die eingegebene Position an.【F:display_menu.cpp†L1287-L1446】
+Die Firmware enthält einen TCP-Server (LX200-kompatibel) über den konfigurierten Port.
+Für Remote-Steuerung:
+1. AP/WLAN aktivieren
+2. Host-IP ermitteln
+3. In Stellarium ein LX200-/Telescope-Gerät mit passendem Port eintragen
 
-**Planeten**: Für Objekte mit Typ `Planet` wird die RA/Dec über die eingebaute Planetenberechnung (basierend auf Julianischem Datum) bestimmt. Voraussetzung: RTC läuft.
+---
 
-## 7. Polaris-Ausrichtung und Tracking
+## 6) Fehlersuche
 
-1. `Polar Align` wählen, mit Joystick auf Polaris zentrieren.
-2. Encoder drücken → Referenzwerte werden gesetzt und gespeichert.
-3. Nach erfolgreichem Align `Start Tracking` aktivieren.
-4. Während laufender Nachführung darf der Joystick jederzeit zur Feinjustage bewegt werden. Sobald der Joystick losgelassen wird, übernimmt das System den neuen Versatz und führt den zuletzt angefahrenen Punkt automatisch nach.
+- Keine Bewegung: `SET_TRACKING_ENABLED`, Goto-/Manuellraten prüfen.
+- Falsche Richtung: `SET_MOTOR_INVERT` anpassen.
+- Dec stoppt nicht mehr durch Software-Limit; dann eher Motorinvertierung, Kalibrierung oder Mechanik prüfen.
+- Ungenaue Ziele: Kalibrierung und Backlash neu einstellen.
 
-**Parken**: Der Menüpunkt `Park` fährt die Höhenachse zur sicheren Maximalposition und stoppt anschließend alle Bewegungen – ideal für Transport oder Abschaltung.【F:display_menu.cpp†L2045-L2086】
+---
 
-## 8. Sicherheit & Tipps
+## 7) Sicherheit
 
-- **Not-Stopp**: Joystick drücken stoppt alle Motoren, Tracking wird deaktiviert.
-- **Horizontschutz**: Goto-Kommandos unterhalb des mathematischen Horizonts werden automatisch verhindert.
-- **EEPROM**: Konfiguration (Kalibrierungen, RTC-Zeitstempel, Align-Status) wird automatisch gesichert.
-- **Planeten-Update**: Für exakte Positionen sollte die RTC regelmäßig synchronisiert werden.
-
-Viel Spaß beim Erkunden des Himmels mit NERDSTAR! 🤓🌌
+- Mechanische Endanschläge zusätzlich zur Softwarebegrenzung vorsehen.
+- Vor schnellem Goto Kabelwege und Kollisionen prüfen.
+- `STOP_ALL` als Not-Stopp jederzeit verfügbar halten.

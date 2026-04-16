@@ -5,8 +5,8 @@
 struct SystemState {
   bool trackingActive;
   bool gotoActive;
-  int64_t azGotoTarget;
-  int64_t altGotoTarget;
+  int64_t raGotoTarget;
+  int64_t decGotoTarget;
 };
 
 extern SystemState systemState;
