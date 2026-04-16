@@ -7,11 +7,7 @@
 #include <time.h>
 
 #include "config.h"
-#include "storage.h"
-
-#if defined(DEVICE_ROLE_HID)
-#include "display_menu.h"
-#endif
+#include "time_utils.h"
 
 namespace wifi_ota {
 namespace {
@@ -33,15 +29,7 @@ uint32_t lastReconnectAttemptMs = 0;
 uint32_t lastNtpSyncMs = 0;
 uint32_t lastNtpAttemptMs = 0;
 
-const char* roleSuffix() {
-#if defined(DEVICE_ROLE_MAIN)
-  return "MAIN";
-#elif defined(DEVICE_ROLE_HID)
-  return "HID";
-#else
-  return "DEV";
-#endif
-}
+const char* roleSuffix() { return "MAIN"; }
 
 void ensureIdentity() {
   if (otaHostname.isEmpty()) {
@@ -95,24 +83,12 @@ bool syncTimeWithNtp() {
     return false;
   }
   time_t utcEpoch = mktime(&timeinfo);
-#if defined(DEVICE_ROLE_HID)
-  display_menu::applyNetworkTime(utcEpoch);
-#else
-  storage::setRtcEpoch(static_cast<uint32_t>(utcEpoch));
-#endif
+  time_utils::setUtcEpoch(utcEpoch);
   return true;
 }
 
 void notifyNtpStatus(bool success) {
-#if defined(DEVICE_ROLE_HID)
-  NtpStatus status = success ? NtpStatus::Success : NtpStatus::Failure;
-  if (status != lastReportedNtpStatus) {
-    display_menu::showInfo(success ? "NTP sync ok" : "NTP sync failed", success ? 2000 : 2500);
-    lastReportedNtpStatus = status;
-  }
-#else
   (void)success;
-#endif
 }
 
 void handleConnectedState() {

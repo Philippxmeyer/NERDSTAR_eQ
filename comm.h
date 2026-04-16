@@ -2,7 +2,6 @@
 
 #include <Arduino.h>
 
-#include <initializer_list>
 #include <vector>
 
 #include "config.h"
@@ -18,19 +17,14 @@ struct Request {
 void initLink();
 void updateLink();
 
-#if defined(DEVICE_ROLE_HID)
-bool waitForReady(uint32_t timeoutMs);
-bool call(const char* command, std::initializer_list<String> params,
-          std::vector<String>* payload = nullptr, String* error = nullptr,
-          uint32_t timeoutMs = config::COMM_RESPONSE_TIMEOUT_MS);
-bool isLinkActive();
-#elif defined(DEVICE_ROLE_MAIN)
 void announceReady();
 bool readRequest(Request& request,
                  uint32_t timeoutMs = config::COMM_RESPONSE_TIMEOUT_MS);
+bool hasRequest();
+Request nextRequest();
+void sendResponse(uint16_t id, std::initializer_list<String> payload = {});
 void sendOk(uint16_t id, std::initializer_list<String> payload = {});
 void sendError(uint16_t id, const String& message);
-#endif
 
 }  // namespace comm
 

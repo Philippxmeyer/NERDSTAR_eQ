@@ -1,9 +1,5 @@
 #pragma once
 
-#include "role_config.h"
-
-#if defined(DEVICE_ROLE_HID)
-
 #include <Arduino.h>
 
 namespace stellarium_link {
@@ -19,5 +15,3 @@ String accessPointIp();
 void forceDisconnectClient();
 
 }  // namespace stellarium_link
-
-#endif  // DEVICE_ROLE_HID

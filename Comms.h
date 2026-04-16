@@ -8,7 +8,7 @@
 /**
  * @brief Bidirectional UART link helper built on top of SerialTransfer.
  *
- * The class is designed for two ESP32 boards (MAIN/HID) that exchange small,
+ * The class is designed for two ESP32 boards (controller/peer) that exchange small,
  * high frequency packets such as joystick positions or button states.  It
  * provides framing, CRC validation (via SerialTransfer), heartbeats to detect
  * link loss, and an optional callback interface so applications can react to

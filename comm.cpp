@@ -6,12 +6,6 @@
 #include <deque>
 #include <utility>
 
-#if defined(DEVICE_ROLE_HID)
-#include "freertos/FreeRTOS.h"
-#include "freertos/portmacro.h"
-#include "freertos/semphr.h"
-#endif
-
 #include "Comms.h"
 
 namespace {
@@ -19,10 +13,6 @@ namespace {
 HardwareSerial uartLink(static_cast<int>(config::COMM_UART_NUM));
 Comms commsLink;
 uint16_t nextRequestId = 1;
-#if defined(DEVICE_ROLE_HID)
-SemaphoreHandle_t rpcMutex = nullptr;
-constexpr uint8_t kMaxCallRetries = 3;
-#endif
 
 constexpr uint8_t kAsciiChannel = 1;
 constexpr size_t kMaxQueuedMessages = 16;
@@ -263,146 +253,11 @@ void initLink() {
   callbacks.onError = handleError;
   commsLink.setCallbacks(callbacks);
   commsLink.clearError();
-#if defined(DEVICE_ROLE_HID)
-  if (rpcMutex == nullptr) {
-    rpcMutex = xSemaphoreCreateMutex();
-  }
-#endif
 }
 
 void updateLink() { pumpLink(); }
 
-#if defined(DEVICE_ROLE_HID)
 
-bool waitForReady(uint32_t timeoutMs) {
-  uint32_t start = millis();
-  while (true) {
-    uint32_t remaining = 0;
-    if (timeoutMs != 0) {
-      uint32_t elapsed = millis() - start;
-      if (elapsed >= timeoutMs) {
-        return false;
-      }
-      remaining = timeoutMs - elapsed;
-    }
-    WireMessage message;
-    if (!readMessage(message, remaining)) {
-      return false;
-    }
-    if (message.type == MessageType::kReady) {
-      return true;
-    }
-  }
-}
-
-bool call(const char* command, std::initializer_list<String> params,
-          std::vector<String>* payload, String* error, uint32_t timeoutMs) {
-  if (rpcMutex == nullptr) {
-    rpcMutex = xSemaphoreCreateMutex();
-  }
-  class MutexLock {
-   public:
-    explicit MutexLock(SemaphoreHandle_t handle) : handle_(handle), locked_(false) {
-      if (!handle_) {
-        return;
-      }
-      BaseType_t schedulerState = xTaskGetSchedulerState();
-      TickType_t wait =
-          (schedulerState == taskSCHEDULER_NOT_STARTED || xPortInIsrContext())
-              ? 0
-              : portMAX_DELAY;
-      locked_ = xSemaphoreTake(handle_, wait) == pdTRUE;
-    }
-    ~MutexLock() {
-      if (locked_ && handle_) {
-        xSemaphoreGive(handle_);
-      }
-    }
-    bool locked() const { return locked_; }
-
-   private:
-    SemaphoreHandle_t handle_;
-    bool locked_;
-  } lock(rpcMutex);
-  if (!lock.locked()) {
-    if (error) {
-      *error = "Mutex";
-    }
-    return false;
-  }
-  String lastError = "Timeout";
-  for (uint8_t attempt = 0; attempt < kMaxCallRetries; ++attempt) {
-    if (payload) {
-      payload->clear();
-    }
-    uint16_t id = nextRequestId++;
-    WireMessage request{MessageType::kRequest, id, String(command), String(),
-                       std::vector<String>(params)};
-    if (attempt > 0 && Serial) {
-      Serial.printf("[COMM] Retrying %s (attempt %u, last error: %s)\n", command,
-                    attempt + 1, lastError.c_str());
-    }
-    if (!sendMessage(request)) {
-      lastError = "Send";
-      break;
-    }
-
-    uint32_t start = millis();
-    while (true) {
-      uint32_t remaining = 0;
-      if (timeoutMs != 0) {
-        uint32_t elapsed = millis() - start;
-        if (elapsed >= timeoutMs) {
-          lastError = "Timeout";
-          break;
-        }
-        remaining = timeoutMs - elapsed;
-      }
-      WireMessage response;
-      if (!readMessage(response, remaining)) {
-        lastError = "Timeout";
-        break;
-      }
-      if (response.type == MessageType::kReady) {
-        continue;
-      }
-      if (response.type != MessageType::kResponse || response.id != id) {
-        lastError = "Protocol";
-        continue;
-      }
-      if (response.status == "OK") {
-        if (payload) {
-          payload->assign(response.params.begin(), response.params.end());
-        }
-        return true;
-      }
-      lastError = response.params.empty() ? String("Error") : response.params[0];
-      break;
-    }
-
-    dropPendingInput();
-    if (lastError != "Timeout" && lastError != "Protocol") {
-      break;
-    }
-    waitForReady(200);
-  }
-
-  if (error) {
-    *error = lastError;
-  }
-  if (Serial) {
-    Serial.printf("[COMM] Command %s failed after %u attempts: %s\n", command,
-                  static_cast<unsigned>(kMaxCallRetries), lastError.c_str());
-  }
-  return false;
-}
-
-bool isLinkActive() {
-  pumpLink();
-  return commsLink.isActive();
-}
-
-#elif defined(DEVICE_ROLE_MAIN)
 
 void announceReady() {
   WireMessage message;
@@ -429,6 +284,39 @@ bool readRequest(Request& request, uint32_t timeoutMs) {
   }
 }
 
+
+bool hasRequest() {
+  pumpLink();
+  for (const auto& message : messageQueue) {
+    if (message.type == MessageType::kRequest && !message.command.isEmpty()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+Request nextRequest() {
+  Request request{};
+  while (true) {
+    WireMessage message;
+    if (!readMessage(message, 0)) {
+      delay(1);
+      continue;
+    }
+    if (message.type != MessageType::kRequest || message.command.isEmpty()) {
+      continue;
+    }
+    request.id = message.id;
+    request.command = message.command;
+    request.params = std::move(message.params);
+    return request;
+  }
+}
+
+void sendResponse(uint16_t id, std::initializer_list<String> payload) {
+  sendOk(id, payload);
+}
+
 void sendOk(uint16_t id, std::initializer_list<String> payload) {
   WireMessage message;
   message.type = MessageType::kResponse;
@@ -447,7 +335,6 @@ void sendError(uint16_t id, const String& message) {
   sendMessage(response);
 }
 
-#endif
 
 }  // namespace comm
 
