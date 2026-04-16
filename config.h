@@ -68,6 +68,11 @@ constexpr uint8_t WIFI_AP_CHANNEL = 6;
 // Stellarium / networking
 constexpr uint16_t STELLARIUM_TCP_PORT = 10001;
 
+// LX200 control
+constexpr double LX200_GOTO_SPEED_DEG_PER_SEC = 2.0;
+constexpr double LX200_MANUAL_SPEED_DEG_PER_SEC = 0.5;
+constexpr double LX200_GOTO_TOLERANCE_DEG = 0.05;
+
 // Astronomy constants
 constexpr double SIDEREAL_DAY_SECONDS = 86164.0905;
 
