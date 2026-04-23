@@ -151,7 +151,7 @@ SERIAL_PORT      = "/dev/ttyUSB0"   # or "/dev/nerdstar" (udev symlink)
 SERIAL_BAUD      = 9600
 STORAGE_PATH     = "/mnt/storage"
 ASTAP_PATH       = "/usr/bin/astap"
-CATALOG_PATH     = "/home/pi/smartscope/catalog.xml"
+CATALOG_PATH     = "/data/catalog.xml"
 ```
 
 Edit `/home/pi/smartscope/config.py` and restart the service after any change:
@@ -164,16 +164,23 @@ sudo systemctl restart smartscope
 
 ## Object catalog
 
-SmartScope uses a simple XML catalog.  Upload a custom one via the web UI or place it at `CATALOG_PATH`.
+The bundled catalog lives at `data/catalog.xml` in the repository and is installed to `/data/catalog.xml` by `install.sh`.  It contains 122 objects: 7 planets, the Moon, 49 bright stars, 34 clusters, 4 double stars, 16 galaxies, 7 nebulae, and 4 planetary nebulae.
+
+You can replace it at any time by uploading a new file via the web UI (`/catalog/upload`) or by placing a file at `/data/catalog.xml` and restarting the service.
+
+### XML format
 
 ```xml
+<?xml version="1.0" encoding="UTF-8"?>
 <catalog>
-  <object name="Orion Nebula" code="M42"     type="Nebula"
-          ra_hours="5.588" dec_degrees="-5.391" magnitude="4.0"/>
-  <object name="Andromeda"    code="M31"     type="Galaxy"
-          ra_hours="0.712" dec_degrees="41.269" magnitude="3.4"/>
-  <object name="Jupiter"      code="Jupiter" type="Planet"
-          ra_hours="0.0"   dec_degrees="0.0"   magnitude="-2.9"/>
+  <object name="Orion Nebula"   code="Messier 042" type="Nebula"
+          ra_hours="5.5881" dec_degrees="-5.3911" magnitude="4.0"/>
+  <object name="Andromeda Galaxy" code="Messier 031" type="Galaxy"
+          ra_hours="0.7123" dec_degrees="41.2692" magnitude="3.4"/>
+  <object name="Jupiter"        code="Jupiter"     type="Planet"
+          ra_hours="0.0"    dec_degrees="0.0"      magnitude="-2.9"/>
+  <object name="Earth Moon"     code="Earth Moon"  type="Moon"
+          ra_hours="0.0"    dec_degrees="0.0"      magnitude="-12.7"/>
 </catalog>
 ```
 
@@ -182,13 +189,26 @@ SmartScope uses a simple XML catalog.  Upload a custom one via the web UI or pla
 | Attribute | Description |
 |---|---|
 | `name` | Display name (searched) |
-| `code` | Short code, used by `/goto/object` (searched) |
-| `type` | Any string; `Planet` triggers live astropy position lookup |
-| `ra_hours` | Right ascension in decimal hours (ignored for planets) |
-| `dec_degrees` | Declination in decimal degrees (ignored for planets) |
+| `code` | Catalog code used by `/goto/object` (searched) |
+| `type` | `Planet` or `Moon` → live position via astropy; anything else → fixed coords |
+| `ra_hours` | Right ascension in decimal hours (ignored for Planet/Moon) |
+| `dec_degrees` | Declination in decimal degrees (ignored for Planet/Moon) |
 | `magnitude` | Apparent magnitude (display only) |
 
-Supported planet codes (case-insensitive): `mercury`, `venus`, `mars`, `jupiter`, `saturn`, `uranus`, `neptune`, `moon`, `sun`.
+**Supported types in the bundled catalog:** `Planet`, `Moon`, `Star`, `Cluster`, `Double Star`, `Galaxy`, `Nebula`, `Planetary Nebula`.
+
+**Supported planet/moon codes** (case-insensitive): `mercury`, `venus`, `mars`, `jupiter`, `saturn`, `uranus`, `neptune`, `earth moon`, `sun`.
+
+### Search shortcuts
+
+The search field recognises observer shorthand:
+
+| You type | Matches |
+|---|---|
+| `M42` | `Messier 042` |
+| `m 16` | `Messier 016` |
+| `NGC253` | `NGC 0253` |
+| `orion` | Any object with "orion" in name or code |
 
 ---
 

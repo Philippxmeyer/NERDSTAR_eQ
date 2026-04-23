@@ -130,6 +130,9 @@ install -d -m 755 -o "$PI_USER" -g "$PI_USER" "$APP_DIR/static"
 install -d -m 755 -o "$PI_USER" -g "$PI_USER" "$APP_DIR/systemd"
 info "Application directory: $APP_DIR"
 
+install -d -m 755 /data
+info "Data directory: /data"
+
 install -d -m 777 /mnt/storage
 info "Storage mount point: /mnt/storage"
 
@@ -147,6 +150,24 @@ section "Copying application files to $APP_DIR"
 
 rsync -a --exclude='.git' --exclude='__pycache__' \
     "$SCRIPT_DIR/" "$APP_DIR/"
+
+# ---------------------------------------------------------------------------
+# 5a. Deploy object catalog to /data/
+# ---------------------------------------------------------------------------
+section "Installing object catalog"
+
+# The catalog lives in the repo's data/ directory, one level up from smartscope/
+REPO_CATALOG="$(dirname "$SCRIPT_DIR")/data/catalog.xml"
+
+if [[ -f "$REPO_CATALOG" ]]; then
+    cp "$REPO_CATALOG" /data/catalog.xml
+    chmod 644 /data/catalog.xml
+    ENTRY_COUNT=$(grep -c '<object' /data/catalog.xml 2>/dev/null || echo "?")
+    info "Catalog installed: /data/catalog.xml ($ENTRY_COUNT objects)"
+else
+    warn "Catalog not found at $REPO_CATALOG"
+    warn "Place a catalog.xml file at /data/catalog.xml or upload one via the web UI."
+fi
 chown -R "$PI_USER:$PI_USER" "$APP_DIR"
 info "Files copied."
 
