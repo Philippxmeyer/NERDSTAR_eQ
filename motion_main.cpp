@@ -1,7 +1,5 @@
 #include "motion.h"
 
-#if defined(DEVICE_ROLE_MAIN)
-
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -318,6 +316,8 @@ void init() {
 
   digitalWrite(axisAz.enPin, LOW);
   digitalWrite(axisAlt.enPin, LOW);
+  pinMode(config::HOME_SWITCH_RA, INPUT_PULLUP);
+  pinMode(config::HOME_SWITCH_DEC, INPUT_PULLUP);
 
   updateNextStep(axisAz, 0);
   updateNextStep(axisAlt, 0);
@@ -572,6 +572,10 @@ bool setMotorInversion(bool invertAz, bool invertAlt) {
 
 void servicePendingOperations() {}
 
-}  // namespace motion
+bool areBothHomeSwitchesPressed() {
+  bool raPressed = digitalRead(config::HOME_SWITCH_RA) == config::HOME_SWITCH_ACTIVE_LEVEL;
+  bool decPressed = digitalRead(config::HOME_SWITCH_DEC) == config::HOME_SWITCH_ACTIVE_LEVEL;
+  return raPressed && decPressed;
+}
 
-#endif  // DEVICE_ROLE_MAIN
+}  // namespace motion

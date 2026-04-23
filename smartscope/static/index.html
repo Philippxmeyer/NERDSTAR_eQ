@@ -351,6 +351,7 @@
     <button onclick="postJson('/park')">⊕ Park</button>
   </div>
   <div style="margin-top:10px;">
+    <button onclick="shutdownHost()" style="width:100%;margin-bottom:10px;">⏻ Shutdown Host</button>
     <button class="stop-btn" onclick="emergencyStop()" style="width:100%;">■ STOP</button>
   </div>
 </div>
@@ -589,6 +590,11 @@ function startCapture() {
 
 function emergencyStop() {
   postJson('/stop').catch(console.warn);
+}
+
+function shutdownHost() {
+  if (!confirm('Park mount and shutdown SmartScope host now?')) return;
+  postJson('/shutdown').catch(e => alert('Shutdown failed: ' + e.message));
 }
 
 // --------------------------------------------------------------------------

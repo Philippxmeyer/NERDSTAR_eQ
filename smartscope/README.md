@@ -323,6 +323,7 @@ Returns a JSON array of matching catalog objects.  Planet positions are calculat
 | `POST` | `/slew/rate` | `{"rate": "guide"\|"center"\|"find"\|"max"}` |
 | `POST` | `/stop` | _(emergency stop – no body)_ |
 | `POST` | `/park` | _(no body)_ |
+| `POST` | `/shutdown` | _(queues park, then host shutdown)_ |
 
 ### Stack & catalog
 
@@ -361,6 +362,10 @@ sudo journalctl -u smartscope -n 100
 All serial I/O flows through a single `asyncio.Queue`.  A worker coroutine dequeues one `(command, future)` pair at a time and runs the blocking `serial.write` / `serial.read_until('#')` in a `ThreadPoolExecutor` thread.  This guarantees that the NERDSTAR eQ's request–response protocol is never interleaved by concurrent callers and that the asyncio event loop is never blocked.
 
 Commands with no reply (`:RG#`, `:RC#`, `:RM#`, `:RS#`, `:T*#`, `:U#`) pass `future=None`; the worker sends them and moves on immediately.
+
+### Shutdown flow
+
+`POST /shutdown` and the optional Pimoroni `onoffshim` button both use the same flow: queue LX200 park (`:hP#`) first, then request Linux shutdown (`sudo shutdown -h now`). Park is intentionally non-blocking so shutdown is not delayed indefinitely by missing mount feedback.
 
 ### Camera (`camera.py`)
 

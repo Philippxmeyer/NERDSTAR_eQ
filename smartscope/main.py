@@ -40,6 +40,11 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="SmartScope")
 
+try:
+    import onoffshim  # type: ignore
+except ImportError:
+    onoffshim = None
+
 # ---------------------------------------------------------------------------
 # Shared application state
 # ---------------------------------------------------------------------------
@@ -49,6 +54,29 @@ _capture_params: dict = {"exposure": 2.0, "gain": 1.0, "frames": 100}
 _capture_enabled: bool = False
 _frames_captured: int = 0
 _last_solve_fits: Optional[str] = None
+_shutdown_requested: bool = False
+
+
+async def request_shutdown(source: str) -> None:
+    """Park first, then trigger host shutdown (non-blocking park request)."""
+    global _shutdown_requested
+    if _shutdown_requested:
+        logger.info("Shutdown already requested (source=%s)", source)
+        return
+    _shutdown_requested = True
+    logger.info("Shutdown requested from %s", source)
+    try:
+        asyncio.create_task(lx200.park())
+    except Exception as exc:
+        logger.warning("Failed to queue park before shutdown: %s", exc)
+    await asyncio.sleep(1.0)
+    proc = await asyncio.create_subprocess_exec(
+        "sudo",
+        "shutdown",
+        "-h",
+        "now",
+    )
+    await proc.wait()
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +133,19 @@ async def startup() -> None:
     await lx200.start_worker(scope_state)
     asyncio.create_task(position_loop())
     asyncio.create_task(capture_loop())
+    if onoffshim is not None:
+        onoffshim.set_pixel(0.0, 0.0, 0.0)
+        loop = asyncio.get_running_loop()
+
+        def _handle_onoffshim_press() -> None:
+            loop.call_soon_threadsafe(
+                lambda: asyncio.create_task(request_shutdown("onoffshim"))
+            )
+
+        onoffshim.on_press(_handle_onoffshim_press)
+        logger.info("onoffshim enabled for shutdown")
+    else:
+        logger.info("onoffshim not available; hardware shutdown button disabled")
 
     if os.path.exists(config.CATALOG_PATH):
         try:
@@ -389,6 +430,12 @@ async def stop():
 @app.post("/park")
 async def park():
     await lx200.park()
+    return {"ok": True}
+
+
+@app.post("/shutdown")
+async def shutdown():
+    asyncio.create_task(request_shutdown("api"))
     return {"ok": True}
 
 

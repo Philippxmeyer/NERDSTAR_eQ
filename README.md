@@ -86,7 +86,7 @@ Implemented LX200 command groups:
     stored UTC offset and calls `time_utils::setUtcEpoch(...)`
 - Slew-rate / tracking-rate / precision toggles silently accepted: `:RG#`, `:RC#`, `:RM#`, `:RS#`, `:TQ#`, `:TS#`, `:TL#`, `:T+#`, `:T-#`, `:U#`
 - Distance bars: `:D#` (empty when idle, `|#` while slewing)
-- Park / home: `:hP#`, `:hC#`, `:hF#` (stop motion and acknowledge)
+- Park / home: `:hP#`, `:hC#`, `:hF#` (slew toward home until both home switches are pressed, then stop)
 
 Declination replies are clamped to `[-90°, +90°]` so INDI never receives
 out-of-range coordinates from an uncalibrated axis.
@@ -96,10 +96,10 @@ print any debug or boot banners on `Serial`.
 
 ## Build
 
-Use Arduino CLI (example for main controller role):
+Use Arduino CLI:
 
 ```bash
-arduino-cli compile --build-property build.extra_flags=-DDEVICE_ROLE_MAIN
+arduino-cli compile
 ```
 
 Then upload as usual for your board profile.

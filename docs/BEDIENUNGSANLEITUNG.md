@@ -30,7 +30,7 @@ Kompatibilität:
 
 ## 3) Inbetriebnahme
 
-1. Firmware für die passende Rolle bauen (typisch Main-Controller mit `DEVICE_ROLE_MAIN`).
+1. Firmware bauen und auf den Controller flashen.
 2. Hardware gemäß `config.h` verdrahten.
 3. Starten und Serielle Ausgabe prüfen (`[MAIN] Boot`, danach `[MAIN] Ready`).
 4. Kalibrierung, Motorinvertierung und Backlash konfigurieren.
