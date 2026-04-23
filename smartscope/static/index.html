@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>SmartScope</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0a0a0a;
+      --bg2:      #141414;
+      --bg3:      #1e1e1e;
+      --accent:   #cc2200;
+      --accent2:  #ff4422;
+      --text:     #cc3300;
+      --text2:    #ff6644;
+      --dim:      #662200;
+      --border:   #331100;
+      --green:    #226600;
+      --green2:   #44cc00;
+      --yellow:   #cc8800;
+    }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, 'SF Mono', monospace;
+      font-size: 15px;
+      line-height: 1.4;
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    /* ---------- warning banner ---------- */
+    #warning {
+      display: none;
+      background: var(--yellow);
+      color: #000;
+      text-align: center;
+      padding: 10px 16px;
+      font-weight: bold;
+      font-size: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    /* ---------- status bar ---------- */
+    #statusbar {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 14px;
+      font-size: 13px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+    }
+    .sb-item { color: var(--dim); }
+    .sb-item span { color: var(--text2); }
+    .sb-ok  { color: var(--green2) !important; }
+    .sb-bad { color: var(--accent2) !important; }
+
+    /* ---------- layout ---------- */
+    .section {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--dim);
+      margin-bottom: 8px;
+    }
+
+    /* ---------- buttons ---------- */
+    button {
+      background: var(--bg3);
+      color: var(--text2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 18px;
+      font-size: 16px;
+      font-family: inherit;
+      cursor: pointer;
+      min-height: 48px;
+      min-width: 48px;
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+      transition: background .1s, border-color .1s;
+    }
+    button:active { background: var(--accent); border-color: var(--accent2); }
+    button.active-btn { background: var(--accent); border-color: var(--accent2); color: #fff; }
+    button.stop-btn {
+      background: var(--accent);
+      border-color: var(--accent2);
+      color: #fff;
+      font-weight: bold;
+      font-size: 18px;
+    }
+    button.stop-btn:active { background: #ff0000; }
+    button.ok-btn {
+      background: var(--green);
+      border-color: var(--green2);
+      color: var(--green2);
+    }
+
+    /* ---------- inputs ---------- */
+    input[type=text], input[type=number], input[type=datetime-local] {
+      background: var(--bg3);
+      color: var(--text2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 16px;
+      font-family: inherit;
+      width: 100%;
+      min-height: 44px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input:focus { border-color: var(--accent); }
+    label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 4px; }
+
+    /* ---------- modal (init dialog) ---------- */
+    #overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.92);
+      z-index: 200;
+      overflow-y: auto;
+      padding: 20px 16px;
+    }
+    #overlay.visible { display: flex; align-items: flex-start; justify-content: center; }
+    .modal {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 16px;
+      width: 100%;
+      max-width: 480px;
+    }
+    .modal h2 { color: var(--text2); margin-bottom: 16px; font-size: 18px; }
+    .form-row { margin-bottom: 14px; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+    .modal-actions button { flex: 1; }
+
+    /* ---------- search ---------- */
+    #search-results {
+      margin-top: 8px;
+      max-height: 240px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .result-item {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 48px;
+      touch-action: manipulation;
+    }
+    .result-item:active { background: var(--bg3); }
+    .result-name { font-size: 16px; color: var(--text2); }
+    .result-meta { font-size: 12px; color: var(--dim); text-align: right; }
+    .result-planet .result-name { color: var(--yellow); }
+
+    /* ---------- preview ---------- */
+    #preview-img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: contain;
+      background: #000;
+      display: block;
+      border-radius: 6px;
+    }
+    .preview-status {
+      text-align: center;
+      font-size: 12px;
+      color: var(--dim);
+      margin-top: 4px;
+    }
+
+    /* ---------- d-pad ---------- */
+    .dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 72px);
+      grid-template-rows: repeat(3, 72px);
+      gap: 6px;
+      justify-content: center;
+    }
+    .dpad button {
+      width: 72px;
+      height: 72px;
+      font-size: 22px;
+      padding: 0;
+      border-radius: 50%;
+    }
+    .dpad .center-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--dim);
+      font-size: 12px;
+    }
+
+    /* ---------- speed row ---------- */
+    .speed-row { display: flex; gap: 8px; }
+    .speed-row button { flex: 1; font-size: 13px; padding: 10px 4px; }
+
+    /* ---------- exposure row ---------- */
+    .exp-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .exp-field { flex: 1; min-width: 80px; }
+    .exp-actions { display: flex; gap: 8px; }
+    .exp-actions button { min-width: 90px; }
+
+    /* ---------- row helpers ---------- */
+    .row { display: flex; gap: 10px; }
+    .row button { flex: 1; }
+
+    /* ---------- stack counter ---------- */
+    #stack-count {
+      font-size: 28px;
+      color: var(--text2);
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Init overlay -->
+<div id="overlay">
+  <div class="modal">
+    <h2>Initialise SmartScope</h2>
+    <div class="form-row">
+      <label>UTC Time</label>
+      <input type="datetime-local" id="init-utc" step="1">
+    </div>
+    <div class="form-row">
+      <label>Latitude °N</label>
+      <input type="number" id="init-lat" step="0.0001" placeholder="48.1351">
+    </div>
+    <div class="form-row">
+      <label>Longitude °E</label>
+      <input type="number" id="init-lon" step="0.0001" placeholder="11.5820">
+    </div>
+    <div id="geo-status" style="font-size:12px;color:var(--dim);margin-bottom:8px;"></div>
+    <div class="modal-actions">
+      <button class="ok-btn" onclick="submitInit()">Initialise</button>
+      <button onclick="closeOverlay()">Skip</button>
+    </div>
+  </div>
+</div>
+
+<!-- Warning banner -->
+<div id="warning">⚠ Time &amp; location not initialised – pointing may be inaccurate</div>
+
+<!-- Status bar -->
+<div id="statusbar">
+  <div class="sb-item">UTC <span id="sb-utc">—</span></div>
+  <div class="sb-item">RA <span id="sb-ra">—</span></div>
+  <div class="sb-item">Dec <span id="sb-dec">—</span></div>
+  <div class="sb-item">ESP32 <span id="sb-esp">—</span></div>
+  <div class="sb-item">Stack <span id="sb-stack">0</span></div>
+</div>
+
+<!-- Search -->
+<div class="section">
+  <div class="section-title">Search</div>
+  <input type="text" id="search-input" placeholder="Object name or code…" autocomplete="off" autocorrect="off" spellcheck="false">
+  <div id="search-results"></div>
+</div>
+
+<!-- Live preview -->
+<div class="section">
+  <div class="section-title">Preview</div>
+  <img id="preview-img" src="" alt="">
+  <div class="preview-status" id="preview-status">Waiting for frames…</div>
+</div>
+
+<!-- Exposure controls -->
+<div class="section">
+  <div class="section-title">Capture</div>
+  <div class="exp-row">
+    <div class="exp-field">
+      <label>Exposure (s)</label>
+      <input type="number" id="exp-time" value="2.0" min="0.1" max="300" step="0.1">
+    </div>
+    <div class="exp-field">
+      <label>Gain</label>
+      <input type="number" id="exp-gain" value="1.0" min="1" max="16" step="0.5">
+    </div>
+    <div class="exp-field">
+      <label>Frames</label>
+      <input type="number" id="exp-frames" value="100" min="1" max="9999" step="1">
+    </div>
+  </div>
+  <div class="exp-actions" style="margin-top:10px;">
+    <button onclick="startCapture()">▶ Capture</button>
+    <button onclick="postJson('/solve')">⊕ Solve</button>
+  </div>
+</div>
+
+<!-- D-pad -->
+<div class="section">
+  <div class="section-title">Manual Slew</div>
+  <div class="dpad">
+    <!-- row 1 -->
+    <div></div>
+    <button id="btn-n" ontouchstart="slewStart('n')" ontouchend="slewStop('n')"
+            onmousedown="slewStart('n')" onmouseup="slewStop('n')">▲</button>
+    <div></div>
+    <!-- row 2 -->
+    <button id="btn-w" ontouchstart="slewStart('w')" ontouchend="slewStop('w')"
+            onmousedown="slewStart('w')" onmouseup="slewStop('w')">◀</button>
+    <div class="center-cell">SLEW</div>
+    <button id="btn-e" ontouchstart="slewStart('e')" ontouchend="slewStop('e')"
+            onmousedown="slewStart('e')" onmouseup="slewStop('e')">▶</button>
+    <!-- row 3 -->
+    <div></div>
+    <button id="btn-s" ontouchstart="slewStart('s')" ontouchend="slewStop('s')"
+            onmousedown="slewStart('s')" onmouseup="slewStop('s')">▼</button>
+    <div></div>
+  </div>
+</div>
+
+<!-- Speed selector -->
+<div class="section">
+  <div class="section-title">Slew Speed</div>
+  <div class="speed-row">
+    <button id="rate-guide"  onclick="setRate('guide')" >Guide</button>
+    <button id="rate-center" onclick="setRate('center')">Center</button>
+    <button id="rate-find"   onclick="setRate('find')"  >Find</button>
+    <button id="rate-max"    onclick="setRate('max')"   >Max</button>
+  </div>
+</div>
+
+<!-- Tracking + Park + Stop -->
+<div class="section">
+  <div class="section-title">Mount Control</div>
+  <div class="row">
+    <button id="btn-track" onclick="toggleTracking()">Tracking OFF</button>
+    <button onclick="postJson('/park')">⊕ Park</button>
+  </div>
+  <div style="margin-top:10px;">
+    <button class="stop-btn" onclick="emergencyStop()" style="width:100%;">■ STOP</button>
+  </div>
+</div>
+
+<!-- Stack -->
+<div class="section">
+  <div class="section-title">Stack</div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div><span id="stack-count">0</span> frames</div>
+    <button onclick="resetStack()">Reset</button>
+  </div>
+</div>
+
+<!-- Catalog upload -->
+<div class="section">
+  <div class="section-title">Catalog</div>
+  <div class="row">
+    <button onclick="document.getElementById('cat-file').click()">Upload XML</button>
+    <span id="cat-status" style="font-size:12px;color:var(--dim);align-self:center;"></span>
+  </div>
+  <input type="file" id="cat-file" accept=".xml" style="display:none" onchange="uploadCatalog(this)">
+</div>
+
+<script>
+'use strict';
+
+// --------------------------------------------------------------------------
+// State
+// --------------------------------------------------------------------------
+let trackingEnabled = false;
+let currentRate = 'center';
+let previewSrc = '';
+
+// --------------------------------------------------------------------------
+// Overlay / Init
+// --------------------------------------------------------------------------
+
+function openOverlay() {
+  document.getElementById('overlay').classList.add('visible');
+  // Pre-fill UTC
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const local = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  document.getElementById('init-utc').value = local;
+
+  // Request geolocation
+  const geoStatus = document.getElementById('geo-status');
+  if (navigator.geolocation) {
+    geoStatus.textContent = 'Getting location…';
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        document.getElementById('init-lat').value = pos.coords.latitude.toFixed(6);
+        document.getElementById('init-lon').value = pos.coords.longitude.toFixed(6);
+        geoStatus.textContent = `Location: ${pos.coords.latitude.toFixed(4)}°, ${pos.coords.longitude.toFixed(4)}°`;
+      },
+      () => { geoStatus.textContent = 'Location unavailable – enter manually.'; }
+    );
+  } else {
+    geoStatus.textContent = 'Geolocation not supported – enter manually.';
+  }
+}
+
+function closeOverlay() {
+  document.getElementById('overlay').classList.remove('visible');
+}
+
+async function submitInit() {
+  const utcLocal = document.getElementById('init-utc').value;  // local datetime-local
+  const lat = parseFloat(document.getElementById('init-lat').value);
+  const lon = parseFloat(document.getElementById('init-lon').value);
+  if (!utcLocal || isNaN(lat) || isNaN(lon)) {
+    alert('Please fill in all fields.');
+    return;
+  }
+  // datetime-local gives local time; convert to UTC ISO string
+  const d = new Date(utcLocal);
+  const utcIso = d.toISOString();
+
+  try {
+    await postJson('/init', { utc: utcIso, lat, lon });
+    localStorage.setItem('smartscope_initialized', '1');
+    closeOverlay();
+    document.getElementById('warning').style.display = 'none';
+  } catch (e) {
+    alert('Init failed: ' + e.message);
+  }
+}
+
+// --------------------------------------------------------------------------
+// HTTP helpers
+// --------------------------------------------------------------------------
+
+async function postJson(url, body = {}) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function getJson(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// --------------------------------------------------------------------------
+// Search
+// --------------------------------------------------------------------------
+
+let searchTimer = null;
+
+document.getElementById('search-input').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => runSearch(e.target.value), 300);
+});
+
+async function runSearch(q) {
+  if (!q.trim()) {
+    document.getElementById('search-results').innerHTML = '';
+    return;
+  }
+  try {
+    const results = await getJson('/search?q=' + encodeURIComponent(q));
+    renderResults(results);
+  } catch (e) {
+    console.warn('Search failed:', e);
+  }
+}
+
+function renderResults(items) {
+  const container = document.getElementById('search-results');
+  if (!items.length) {
+    container.innerHTML = '<div style="padding:10px;color:var(--dim);font-size:13px;">No results</div>';
+    return;
+  }
+  container.innerHTML = items.map(obj => {
+    const isPlanet = obj.type.toLowerCase() === 'planet';
+    const mag = obj.magnitude < 90 ? `mag ${obj.magnitude.toFixed(1)}` : '';
+    return `<div class="result-item ${isPlanet ? 'result-planet' : ''}"
+                 onclick="gotoObject('${escapeHtml(obj.code)}')">
+      <div class="result-name">${escapeHtml(obj.name)}</div>
+      <div class="result-meta">
+        ${escapeHtml(obj.type)}<br>${mag}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function gotoObject(code) {
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-results').innerHTML = '';
+  try {
+    await postJson('/goto/object', { code });
+  } catch (e) {
+    alert('GoTo failed: ' + e.message);
+  }
+}
+
+// --------------------------------------------------------------------------
+// D-pad
+// --------------------------------------------------------------------------
+
+function slewStart(dir) {
+  postJson('/slew', { direction: dir, active: true }).catch(console.warn);
+  document.getElementById('btn-' + dir).classList.add('active-btn');
+}
+
+function slewStop(dir) {
+  postJson('/slew', { direction: dir, active: false }).catch(console.warn);
+  document.getElementById('btn-' + dir).classList.remove('active-btn');
+}
+
+// Cancel slew if pointer leaves button
+['n','s','e','w'].forEach(dir => {
+  const btn = document.getElementById('btn-' + dir);
+  btn.addEventListener('touchcancel', () => slewStop(dir));
+  btn.addEventListener('mouseleave',  () => { if (btn.classList.contains('active-btn')) slewStop(dir); });
+});
+
+// --------------------------------------------------------------------------
+// Speed
+// --------------------------------------------------------------------------
+
+function setRate(rate) {
+  currentRate = rate;
+  ['guide','center','find','max'].forEach(r => {
+    document.getElementById('rate-' + r).classList.toggle('active-btn', r === rate);
+  });
+  postJson('/slew/rate', { rate }).catch(console.warn);
+}
+
+// Default rate highlight
+setRate('center');
+
+// --------------------------------------------------------------------------
+// Tracking
+// --------------------------------------------------------------------------
+
+function toggleTracking() {
+  trackingEnabled = !trackingEnabled;
+  applyTrackingUI();
+  postJson('/track', { enabled: trackingEnabled }).catch(console.warn);
+}
+
+function applyTrackingUI() {
+  const btn = document.getElementById('btn-track');
+  btn.textContent = trackingEnabled ? 'Tracking ON' : 'Tracking OFF';
+  btn.classList.toggle('ok-btn', trackingEnabled);
+  btn.classList.toggle('active-btn', false);
+}
+
+// --------------------------------------------------------------------------
+// Capture
+// --------------------------------------------------------------------------
+
+function startCapture() {
+  const exposure = parseFloat(document.getElementById('exp-time').value) || 2.0;
+  const gain = parseFloat(document.getElementById('exp-gain').value) || 1.0;
+  const frames = parseInt(document.getElementById('exp-frames').value) || 100;
+  postJson('/capture', { exposure, gain, frames }).catch(e => alert('Capture failed: ' + e.message));
+}
+
+// --------------------------------------------------------------------------
+// Stop / park
+// --------------------------------------------------------------------------
+
+function emergencyStop() {
+  postJson('/stop').catch(console.warn);
+}
+
+// --------------------------------------------------------------------------
+// Stack
+// --------------------------------------------------------------------------
+
+function resetStack() {
+  postJson('/stack/reset').catch(console.warn);
+}
+
+// --------------------------------------------------------------------------
+// Catalog upload
+// --------------------------------------------------------------------------
+
+async function uploadCatalog(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('file', file);
+  const status = document.getElementById('cat-status');
+  status.textContent = 'Uploading…';
+  try {
+    const res = await fetch('/catalog/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (res.ok) {
+      status.textContent = `Loaded ${data.count} objects`;
+    } else {
+      status.textContent = 'Upload failed: ' + (data.error || res.status);
+    }
+  } catch (e) {
+    status.textContent = 'Upload error: ' + e.message;
+  }
+  input.value = '';
+}
+
+// --------------------------------------------------------------------------
+// SSE preview
+// --------------------------------------------------------------------------
+
+function startPreviewStream() {
+  const img = document.getElementById('preview-img');
+  const statusEl = document.getElementById('preview-status');
+  let evtSource = null;
+
+  function connect() {
+    if (evtSource) evtSource.close();
+    evtSource = new EventSource('/preview');
+
+    evtSource.onmessage = e => {
+      const data = e.data;
+      if (data && data.length > 10) {
+        img.src = 'data:image/jpeg;base64,' + data;
+        previewSrc = img.src;
+        statusEl.textContent = 'Live';
+      }
+    };
+
+    evtSource.onerror = () => {
+      statusEl.textContent = 'Reconnecting…';
+      evtSource.close();
+      setTimeout(connect, 3000);
+    };
+  }
+
+  connect();
+}
+
+// --------------------------------------------------------------------------
+// Status polling
+// --------------------------------------------------------------------------
+
+function formatRA(h) {
+  if (h === undefined || h === null) return '—';
+  const total = Math.round(h * 3600);
+  const hh = Math.floor(total / 3600).toString().padStart(2,'0');
+  const mm = Math.floor((total % 3600) / 60).toString().padStart(2,'0');
+  const ss = (total % 60).toString().padStart(2,'0');
+  return `${hh}h${mm}m${ss}s`;
+}
+
+function formatDec(d) {
+  if (d === undefined || d === null) return '—';
+  const sign = d >= 0 ? '+' : '-';
+  const abs = Math.abs(d);
+  const dd = Math.floor(abs).toString().padStart(2,'0');
+  const mm = Math.floor((abs % 1) * 60).toString().padStart(2,'0');
+  return `${sign}${dd}°${mm}'`;
+}
+
+async function pollStatus() {
+  try {
+    const s = await getJson('/status');
+
+    // Status bar
+    document.getElementById('sb-ra').textContent    = formatRA(s.ra);
+    document.getElementById('sb-dec').textContent   = formatDec(s.dec);
+    document.getElementById('sb-stack').textContent = s.stack_count;
+    document.getElementById('stack-count').textContent = s.stack_count;
+
+    const espEl = document.getElementById('sb-esp');
+    espEl.textContent = s.esp32_connected ? 'OK' : 'OFFLINE';
+    espEl.className = s.esp32_connected ? 'sb-ok' : 'sb-bad';
+
+    if (s.utc) {
+      document.getElementById('sb-utc').textContent = s.utc.slice(0,19).replace('T',' ');
+    }
+
+    // Warning banner
+    document.getElementById('warning').style.display =
+      s.location_set ? 'none' : 'block';
+
+    // Sync tracking button
+    if (s.tracking !== trackingEnabled) {
+      trackingEnabled = s.tracking;
+      applyTrackingUI();
+    }
+
+  } catch (e) {
+    // silently ignore polling errors
+  }
+  setTimeout(pollStatus, 1500);
+}
+
+// --------------------------------------------------------------------------
+// Boot
+// --------------------------------------------------------------------------
+
+window.addEventListener('load', () => {
+  // Show init dialog if not yet done
+  if (!localStorage.getItem('smartscope_initialized')) {
+    openOverlay();
+    document.getElementById('warning').style.display = 'block';
+  }
+
+  startPreviewStream();
+  pollStatus();
+});
+</script>
+</body>
+</html>
