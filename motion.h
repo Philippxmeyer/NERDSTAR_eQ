@@ -46,9 +46,7 @@ int8_t getLastDirection(Axis axis);
 void setAltitudeLimitsEnabled(bool enabled);
 bool setMotorInversion(bool invertAz, bool invertAlt);
 void servicePendingOperations();
-
-#if defined(DEVICE_ROLE_MAIN)
 void motorTaskLoop();
-#endif
+bool areBothHomeSwitchesPressed();
 
 } // namespace motion

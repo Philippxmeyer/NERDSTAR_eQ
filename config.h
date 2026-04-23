@@ -3,8 +3,6 @@
 #include <Arduino.h>
 #include "driver/uart.h"
 
-#include "role_config.h"
-
 namespace config {
 
 // Pin mappings ----------------------------------------------------------------
@@ -15,6 +13,9 @@ constexpr uint8_t STEP_RA = 25;
 constexpr uint8_t EN_DEC = 14;
 constexpr uint8_t DIR_DEC = 13;
 constexpr uint8_t STEP_DEC = 12;
+constexpr uint8_t HOME_SWITCH_RA = 32;
+constexpr uint8_t HOME_SWITCH_DEC = 33;
+constexpr uint8_t HOME_SWITCH_ACTIVE_LEVEL = LOW;
 
 constexpr uart_port_t COMM_UART_NUM = UART_NUM_2;
 constexpr uint8_t COMM_TX_PIN = 17;

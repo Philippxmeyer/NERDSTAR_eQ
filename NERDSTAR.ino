@@ -1,5 +1,3 @@
-#include "role_config.h"
-
 #include <Arduino.h>
 #include <cmath>
 #include <cstdlib>
