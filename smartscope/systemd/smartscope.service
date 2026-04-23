@@ -1,0 +1,13 @@
+[Unit]
+Description=SmartScope
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/pi/smartscope/main.py
+WorkingDirectory=/home/pi/smartscope
+Restart=always
+RestartSec=3
+User=pi
+
+[Install]
+WantedBy=multi-user.target
