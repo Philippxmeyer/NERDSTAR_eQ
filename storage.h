@@ -17,6 +17,7 @@ struct SystemConfig {
   double orientationSampleWeight;
   uint16_t configVersion;
   int32_t backlashTakeupRateStepsPerSecond;
+  SiteLocation site;
 };
 
 namespace storage {
@@ -31,6 +32,9 @@ void setPanningProfile(const GotoProfile& profile);
 void setMotorInversion(bool invertAz, bool invertAlt);
 void setOrientationModel(double azBiasDeg, double altBiasDeg, double sampleWeight);
 void clearOrientationModel();
+void setSiteLatitude(double latitudeDeg);
+void setSiteLongitude(double longitudeDeg);
+void setUtcOffsetMinutes(int32_t utcOffsetMinutes);
 void save();
 
 }  // namespace storage

@@ -79,6 +79,22 @@ WLAN noch TCP.
 4. Ein Handshake-Kommando (`:GR#`, `:GVP#`) liefert direkt nach dem Boot gültige
    Antworten – es werden keine Debug-Nachrichten über USB gesendet.
 
+### 5.1 Standort- und Zeitsynchronisation
+
+Der Stellarmate schickt beim Verbinden üblicherweise den Standort (`:St`,
+`:Sg`), den UTC-Offset (`:SG`) sowie Datum und Uhrzeit (`:SC`, `:SL`). Die
+Firmware:
+
+- speichert Breitengrad (nord-positiv) und Längengrad
+  (intern ost-positiv, bei `:Gg#` wird wieder west-positiv ausgegeben) in
+  EEPROM,
+- merkt sich den UTC-Offset in Minuten und
+- kombiniert `:SC`+`:SL` mit dem gespeicherten Offset zu einer UTC-Epoch und
+  stellt damit die DS3231-RTC.
+
+Vorher gespeicherte Werte bleiben über einen Reboot erhalten und können über
+`:Gt#` / `:Gg#` zurückgelesen werden.
+
 ---
 
 ## 6) Fehlersuche

@@ -9,9 +9,11 @@
 namespace {
 
 constexpr uint32_t kConfigMagic = 0x4E455244;  // "NERD"
-constexpr uint16_t kConfigVersion = 1;
+constexpr uint16_t kConfigVersion = 2;
 constexpr size_t kConfigStorageSize = 256;
 bool eepromReady = false;
+
+constexpr SiteLocation kDefaultSite{0.0, 0.0, 0, 0};
 
 SystemConfig systemConfig{kConfigMagic,
                           {config::DEFAULT_AXIS_STEPS_PER_DEG,
@@ -32,7 +34,8 @@ SystemConfig systemConfig{kConfigMagic,
                           config::DEFAULT_ORIENTATION_ALT_BIAS_DEG,
                           config::DEFAULT_ORIENTATION_SAMPLE_WEIGHT,
                           kConfigVersion,
-                          config::DEFAULT_BACKLASH_TAKEUP_STEPS_PER_SEC};
+                          config::DEFAULT_BACKLASH_TAKEUP_STEPS_PER_SEC,
+                          kDefaultSite};
 
 static_assert(sizeof(SystemConfig) <= kConfigStorageSize,
               "SystemConfig too large for config storage");
@@ -62,6 +65,16 @@ void applyDefaults() {
   systemConfig.configVersion = kConfigVersion;
   systemConfig.backlashTakeupRateStepsPerSecond =
       config::DEFAULT_BACKLASH_TAKEUP_STEPS_PER_SEC;
+  systemConfig.site = kDefaultSite;
+}
+
+bool siteIsInvalid(const SiteLocation& site) {
+  if (!isfinite(site.latitudeDeg) || !isfinite(site.longitudeDeg)) return true;
+  if (site.latitudeDeg < -90.0 || site.latitudeDeg > 90.0) return true;
+  if (site.longitudeDeg < -180.0 || site.longitudeDeg > 180.0) return true;
+  if (site.utcOffsetMinutes < -14 * 60 || site.utcOffsetMinutes > 14 * 60) return true;
+  if (site.valid > 1) return true;
+  return false;
 }
 
 bool profileIsInvalid(const GotoProfile& profile) {
@@ -137,6 +150,16 @@ bool init() {
     systemConfig.orientationSampleWeight = config::DEFAULT_ORIENTATION_SAMPLE_WEIGHT;
     needsSave = true;
   }
+  if (systemConfig.configVersion < 2) {
+    // Site location was added in v2; any bytes read from EEPROM for older
+    // configs are undefined, so reset to the neutral default.
+    systemConfig.site = kDefaultSite;
+    needsSave = true;
+  }
+  if (siteIsInvalid(systemConfig.site)) {
+    systemConfig.site = kDefaultSite;
+    needsSave = true;
+  }
   if (systemConfig.configVersion != kConfigVersion) {
     systemConfig.configVersion = kConfigVersion;
     needsSave = true;
@@ -192,6 +215,32 @@ void setOrientationModel(double azBiasDeg, double altBiasDeg, double sampleWeigh
 
 void clearOrientationModel() {
   setOrientationModel(0.0, 0.0, 0.0);
+}
+
+void setSiteLatitude(double latitudeDeg) {
+  if (!isfinite(latitudeDeg)) return;
+  if (latitudeDeg < -90.0) latitudeDeg = -90.0;
+  if (latitudeDeg > 90.0) latitudeDeg = 90.0;
+  systemConfig.site.latitudeDeg = latitudeDeg;
+  systemConfig.site.valid = 1;
+  saveConfigInternal();
+}
+
+void setSiteLongitude(double longitudeDeg) {
+  if (!isfinite(longitudeDeg)) return;
+  if (longitudeDeg < -180.0) longitudeDeg = -180.0;
+  if (longitudeDeg > 180.0) longitudeDeg = 180.0;
+  systemConfig.site.longitudeDeg = longitudeDeg;
+  systemConfig.site.valid = 1;
+  saveConfigInternal();
+}
+
+void setUtcOffsetMinutes(int32_t utcOffsetMinutes) {
+  if (utcOffsetMinutes < -14 * 60) utcOffsetMinutes = -14 * 60;
+  if (utcOffsetMinutes > 14 * 60) utcOffsetMinutes = 14 * 60;
+  systemConfig.site.utcOffsetMinutes = utcOffsetMinutes;
+  systemConfig.site.valid = 1;
+  saveConfigInternal();
 }
 
 void save() { saveConfigInternal(); }

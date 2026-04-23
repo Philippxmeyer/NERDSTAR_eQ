@@ -1,11 +1,14 @@
-#include "stellarium_link.h"
+#include "lx200_link.h"
 
 #include <cmath>
+#include <time.h>
 
 #include "config.h"
 #include "motion.h"
+#include "storage.h"
+#include "time_utils.h"
 
-namespace stellarium_link {
+namespace lx200_link {
 namespace {
 
 String g_usbCommandBuffer;
@@ -23,6 +26,13 @@ struct Lx200State {
   SlewMode slewMode = SlewMode::kIdle;
   int8_t manualRaDir = 0;
   int8_t manualDecDir = 0;
+
+  // :SC sets the date; we buffer it until :SL (local time) arrives and then
+  // combine both into a UTC epoch that goes into the RTC.
+  bool hasPendingDate = false;
+  int pendingYear = 1970;   // four-digit
+  int pendingMonth = 1;     // 1..12
+  int pendingDay = 1;       // 1..31
 };
 
 Lx200State g_lx200;
@@ -176,6 +186,135 @@ bool parseLx200Dec(const String& text, double& outDegrees) {
   return true;
 }
 
+// Parse :St / :Sg body. Format: `sDDD*MM[:SS]` or `sDDD:MM[:SS]`.
+// Returns decimal degrees with the sign applied. `maxDegrees` is 90 for
+// latitude and 180 for longitude.
+bool parseLx200SignedAngle(const String& text, int maxDegrees, double& outDegrees) {
+  if (text.length() < 4) return false;
+
+  int sign = 1;
+  int offset = 0;
+  if (text[0] == '-') { sign = -1; offset = 1; }
+  else if (text[0] == '+') { offset = 1; }
+
+  int degreeSep = text.indexOf('*', offset);
+  if (degreeSep < 0) degreeSep = text.indexOf(':', offset);
+  if (degreeSep <= offset) return false;
+
+  int degrees = 0;
+  if (!parseUnsignedPart(text.substring(offset, degreeSep), degrees)) return false;
+  if (degrees > maxDegrees) return false;
+
+  // Minutes (and optional seconds) follow.
+  String rest = text.substring(degreeSep + 1);
+  int minuteSep = rest.indexOf(':');
+  int minutes = 0, seconds = 0;
+  if (minuteSep < 0) {
+    if (!parseUnsignedPart(rest, minutes)) return false;
+  } else {
+    if (!parseUnsignedPart(rest.substring(0, minuteSep), minutes)) return false;
+    if (!parseUnsignedPart(rest.substring(minuteSep + 1), seconds)) return false;
+  }
+  if (minutes > 59 || seconds > 59) return false;
+
+  double value = static_cast<double>(degrees) +
+                 static_cast<double>(minutes) / 60.0 +
+                 static_cast<double>(seconds) / 3600.0;
+  outDegrees = value * static_cast<double>(sign);
+  return true;
+}
+
+// :SG body. Accepts `sHH.H` (decimal hours) or `sHH[:MM]` (colon form).
+// Returns minutes offset from UTC (east-positive).
+bool parseLx200UtcOffset(const String& text, int32_t& outMinutes) {
+  if (text.isEmpty()) return false;
+
+  int sign = 1;
+  int offset = 0;
+  if (text[0] == '-') { sign = -1; offset = 1; }
+  else if (text[0] == '+') { offset = 1; }
+
+  String body = text.substring(offset);
+  if (body.isEmpty()) return false;
+
+  int dotIdx = body.indexOf('.');
+  int colonIdx = body.indexOf(':');
+
+  double hours = 0.0;
+  if (colonIdx >= 0) {
+    int h = 0, m = 0;
+    if (!parseUnsignedPart(body.substring(0, colonIdx), h)) return false;
+    if (!parseUnsignedPart(body.substring(colonIdx + 1), m)) return false;
+    if (m > 59) return false;
+    hours = static_cast<double>(h) + static_cast<double>(m) / 60.0;
+  } else if (dotIdx >= 0) {
+    hours = atof(body.c_str());
+    if (!isfinite(hours)) return false;
+  } else {
+    int h = 0;
+    if (!parseUnsignedPart(body, h)) return false;
+    hours = static_cast<double>(h);
+  }
+
+  double minutes = hours * 60.0 * static_cast<double>(sign);
+  if (minutes < -14.0 * 60.0 || minutes > 14.0 * 60.0) return false;
+  outMinutes = static_cast<int32_t>(lround(minutes));
+  return true;
+}
+
+// Parse :SC body `MM/DD/YY` (or `MM/DD/YYYY`).
+bool parseLx200Date(const String& text, int& outYear, int& outMonth, int& outDay) {
+  int firstSlash = text.indexOf('/');
+  int secondSlash = (firstSlash < 0) ? -1 : text.indexOf('/', firstSlash + 1);
+  if (firstSlash <= 0 || secondSlash <= firstSlash) return false;
+
+  int mm = 0, dd = 0, yy = 0;
+  if (!parseUnsignedPart(text.substring(0, firstSlash), mm) ||
+      !parseUnsignedPart(text.substring(firstSlash + 1, secondSlash), dd) ||
+      !parseUnsignedPart(text.substring(secondSlash + 1), yy)) {
+    return false;
+  }
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return false;
+
+  if (yy < 100) {
+    // Two-digit year: 00..69 -> 2000s, 70..99 -> 1900s (matches LX200 convention).
+    yy += (yy < 70) ? 2000 : 1900;
+  }
+  if (yy < 1970 || yy > 2099) return false;
+
+  outYear = yy;
+  outMonth = mm;
+  outDay = dd;
+  return true;
+}
+
+void applyDateTimeIfReady(int hour, int minute, int second) {
+  if (!g_lx200.hasPendingDate) {
+    return;
+  }
+  struct tm tmLocal{};
+  tmLocal.tm_year = g_lx200.pendingYear - 1900;
+  tmLocal.tm_mon = g_lx200.pendingMonth - 1;
+  tmLocal.tm_mday = g_lx200.pendingDay;
+  tmLocal.tm_hour = hour;
+  tmLocal.tm_min = minute;
+  tmLocal.tm_sec = second;
+  tmLocal.tm_isdst = 0;
+
+  // `mktime` interprets tmLocal in the system's local time zone. Since the
+  // ESP32 never calls `setenv("TZ", ...)`, the local zone is effectively UTC
+  // and `mktime` gives us a UTC epoch for the wall-clock components.
+  time_t hostLocalEpoch = mktime(&tmLocal);
+  if (hostLocalEpoch == static_cast<time_t>(-1)) {
+    return;
+  }
+  int32_t utcOffsetSeconds =
+      storage::getConfig().site.utcOffsetMinutes * 60;
+  time_t utcEpoch = hostLocalEpoch - utcOffsetSeconds;
+  time_utils::setUtcEpoch(utcEpoch);
+  g_lx200.hasPendingDate = false;
+}
+
 void writeReplyToUsb(const String& payload) {
   if (!Serial) {
     return;
@@ -310,6 +449,36 @@ void handleLx200Command(const String& cmd, ReplyFn&& reply) {
     return;
   }
 
+  // Report stored site coordinates back to the host when requested.
+  if (cmd == ":Gt") {
+    const auto& site = storage::getConfig().site;
+    double lat = site.latitudeDeg;
+    int sign = lat < 0 ? -1 : 1;
+    double absLat = fabs(lat);
+    int deg = static_cast<int>(absLat);
+    int minutes = static_cast<int>(lround((absLat - deg) * 60.0));
+    if (minutes >= 60) { minutes = 0; deg += 1; }
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%c%02d*%02d", sign < 0 ? '-' : '+', deg, minutes);
+    reply(buf);
+    return;
+  }
+  if (cmd == ":Gg") {
+    // Meade :Gg reports longitude in west-positive form (0..360, sign used
+    // per spec variant). We send west-positive to match the canonical Meade
+    // behaviour and INDI's expectations.
+    const auto& site = storage::getConfig().site;
+    double westPositive = -site.longitudeDeg;
+    if (westPositive < 0.0) westPositive += 360.0;
+    int deg = static_cast<int>(westPositive);
+    int minutes = static_cast<int>(lround((westPositive - deg) * 60.0));
+    if (minutes >= 60) { minutes = 0; deg += 1; }
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%03d*%02d", deg, minutes);
+    reply(buf);
+    return;
+  }
+
   // Product / firmware identification. INDI's LX200 drivers issue these
   // during handshake and refuse to progress without a sensible response.
   if (cmd == ":GVP") {
@@ -378,12 +547,76 @@ void handleLx200Command(const String& cmd, ReplyFn&& reply) {
     return;
   }
 
-  // Site / location / time commands are acknowledged so that INDI-style
-  // hosts can progress their handshake, even though the firmware itself
-  // does not yet use geographic coordinates.
-  if (cmd.startsWith(":SC") || cmd.startsWith(":SL") ||
-      cmd.startsWith(":SG") || cmd.startsWith(":Sg") ||
-      cmd.startsWith(":St")) {
+  // Site latitude - north-positive signed DMS.
+  if (cmd.startsWith(":St")) {
+    double lat = 0.0;
+    if (!parseLx200SignedAngle(cmd.substring(3), 90, lat)) {
+      reply("0");
+      return;
+    }
+    storage::setSiteLatitude(lat);
+    reply("1");
+    return;
+  }
+
+  // Site longitude. Meade's :Sg transmits west-positive 0..360; we store
+  // east-positive in the range -180..+180 so that the rest of the firmware
+  // can use the ISO convention.
+  if (cmd.startsWith(":Sg")) {
+    double raw = 0.0;
+    if (!parseLx200SignedAngle(cmd.substring(3), 360, raw)) {
+      reply("0");
+      return;
+    }
+    double eastPositive = -raw;
+    while (eastPositive > 180.0) eastPositive -= 360.0;
+    while (eastPositive < -180.0) eastPositive += 360.0;
+    storage::setSiteLongitude(eastPositive);
+    reply("1");
+    return;
+  }
+
+  // UTC offset (hours east of UTC).
+  if (cmd.startsWith(":SG")) {
+    int32_t minutes = 0;
+    if (!parseLx200UtcOffset(cmd.substring(3), minutes)) {
+      reply("0");
+      return;
+    }
+    storage::setUtcOffsetMinutes(minutes);
+    reply("1");
+    return;
+  }
+
+  // Date: `MM/DD/YY`.
+  if (cmd.startsWith(":SC")) {
+    int y = 0, m = 0, d = 0;
+    if (!parseLx200Date(cmd.substring(3), y, m, d)) {
+      reply("0");
+      return;
+    }
+    g_lx200.pendingYear = y;
+    g_lx200.pendingMonth = m;
+    g_lx200.pendingDay = d;
+    g_lx200.hasPendingDate = true;
+    reply("1");
+    return;
+  }
+
+  // Local time: `HH:MM:SS`. Combined with the buffered :SC date the result
+  // lands in the DS3231.
+  if (cmd.startsWith(":SL")) {
+    double hoursDeg = 0.0;
+    if (!parseLx200Ra(cmd.substring(3), hoursDeg)) {
+      reply("0");
+      return;
+    }
+    double totalSeconds = (hoursDeg / 15.0) * 3600.0;
+    int secs = static_cast<int>(lround(totalSeconds));
+    int hour = (secs / 3600) % 24;
+    int minute = (secs % 3600) / 60;
+    int second = secs % 60;
+    applyDateTimeIfReady(hour, minute, second);
     reply("1");
     return;
   }
@@ -442,4 +675,4 @@ void update() {
   updateGotoSlew();
 }
 
-}  // namespace stellarium_link
+}  // namespace lx200_link

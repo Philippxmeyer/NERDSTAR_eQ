@@ -75,7 +75,15 @@ Implemented LX200 command groups:
 - Target setup + GoTo: `:SrHH:MM:SS#`, `:Sd+DD*MM:SS#`, `:MS#`
 - Manual slewing: `:Mn#`, `:Ms#`, `:Me#`, `:Mw#`; stop via `:Qn#`, `:Qs#`, `:Qe#`, `:Qw#`, `:Q#`
 - Product / firmware identification: `:GVP#`, `:GVN#`, `:GVF#`, `:GVD#`, `:GVT#`
-- Compatibility acknowledgements (accepted, no side effect): `:SC...#`, `:SL...#`, `:SG...#`, `:Sg...#`, `:St...#`
+- Observer site (persisted in EEPROM):
+  - `:StsDD*MM[:SS]#` - set latitude (north-positive, stored in `SiteLocation.latitudeDeg`)
+  - `:SgDDD*MM[:SS]#` - set longitude (Meade's west-positive form is converted to ISO east-positive on the fly)
+  - `:SGsHH.H#` / `:SGsHH:MM#` - UTC offset
+  - `:Gt#` / `:Gg#` - read back stored latitude / longitude
+- Host-supplied date / time feed the DS3231 RTC:
+  - `:SCMM/DD/YY#` (or `:SCMM/DD/YYYY#`) buffers the date
+  - `:SLHH:MM:SS#` completes the pair; the firmware combines both with the
+    stored UTC offset and calls `time_utils::setUtcEpoch(...)`
 - Slew-rate / tracking-rate / precision toggles silently accepted: `:RG#`, `:RC#`, `:RM#`, `:RS#`, `:TQ#`, `:TS#`, `:TL#`, `:T+#`, `:T-#`, `:U#`
 - Distance bars: `:D#` (empty when idle, `|#` while slewing)
 - Park / home: `:hP#`, `:hC#`, `:hF#` (stop motion and acknowledge)
