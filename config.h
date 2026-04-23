@@ -29,7 +29,10 @@ constexpr uint32_t COMM_BAUD = 57600;
 constexpr uint32_t COMM_HEARTBEAT_INTERVAL_MS = 200;
 constexpr uint32_t COMM_HEARTBEAT_TIMEOUT_MS = 2000;
 constexpr uint32_t COMM_RESPONSE_TIMEOUT_MS = 200;
-constexpr uint32_t USB_DEBUG_BAUD = 115200;
+
+// USB serial is the LX200 command channel used by Stellarmate / INDI.
+// 9600 baud matches the default speed of Meade-compatible LX200 drivers.
+constexpr uint32_t USB_LX200_BAUD = 9600;
 
 // Motion configuration
 constexpr double FULLSTEPS_PER_REV = 200 * 50.0;
@@ -57,21 +60,11 @@ constexpr double DEFAULT_ORIENTATION_AZ_BIAS_DEG = 0.0;
 constexpr double DEFAULT_ORIENTATION_ALT_BIAS_DEG = 0.0;
 constexpr double DEFAULT_ORIENTATION_SAMPLE_WEIGHT = 0.0;
 
-// WiFi / OTA
-constexpr const char* WIFI_HOSTNAME_PREFIX = "nerdstar";
-constexpr const char* WIFI_STA_SSID = "Waldmeyer";
-constexpr const char* WIFI_STA_PASSWORD = "94650411894394693580";
-constexpr const char* WIFI_AP_SSID = "NERDSTAR";
-constexpr const char* WIFI_AP_PASSWORD = "stardust42";
-constexpr uint8_t WIFI_AP_CHANNEL = 6;
-
-// Stellarium / networking
-constexpr uint16_t STELLARIUM_TCP_PORT = 10001;
-
 // LX200 control
 constexpr double LX200_GOTO_SPEED_DEG_PER_SEC = 2.0;
 constexpr double LX200_MANUAL_SPEED_DEG_PER_SEC = 0.5;
 constexpr double LX200_GOTO_TOLERANCE_DEG = 0.05;
+constexpr const char* LX200_FIRMWARE_VERSION = "1.0";
 
 // Astronomy constants
 constexpr double SIDEREAL_DAY_SECONDS = 86164.0905;

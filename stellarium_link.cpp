@@ -1,21 +1,13 @@
 #include "stellarium_link.h"
 
-#include <WiFi.h>
-
 #include <cmath>
 
 #include "config.h"
 #include "motion.h"
-#include "wifi_ota.h"
 
 namespace stellarium_link {
 namespace {
 
-WiFiServer g_server(config::STELLARIUM_TCP_PORT);
-WiFiClient g_client;
-bool g_accessPointActive = false;
-IPAddress g_accessPointIp;
-String g_tcpCommandBuffer;
 String g_usbCommandBuffer;
 
 enum class SlewMode : uint8_t {
@@ -81,15 +73,17 @@ String formatDMS(int16_t d, uint8_t m, uint8_t s) {
   return String(buffer);
 }
 
+// LX200 clients expect declination strictly within [-90, +90] degrees.
+// The motion layer can return values outside that range (e.g. after
+// wrap-around on an uncalibrated axis), so we clamp here before emitting.
 String formatDec(double decDeg) {
-  double clamped = decDeg;
-  if (clamped > 180.0) {
-    clamped = 180.0;
-  } else if (clamped < -180.0) {
-    clamped = -180.0;
+  if (decDeg > 90.0) {
+    decDeg = 90.0;
+  } else if (decDeg < -90.0) {
+    decDeg = -90.0;
   }
 
-  int32_t totalArcSeconds = static_cast<int32_t>(lround(clamped * 3600.0));
+  int32_t totalArcSeconds = static_cast<int32_t>(lround(decDeg * 3600.0));
   int sign = totalArcSeconds < 0 ? -1 : 1;
   int32_t absArcSeconds = std::abs(totalArcSeconds);
   int16_t degrees = static_cast<int16_t>(absArcSeconds / 3600);
@@ -182,14 +176,6 @@ bool parseLx200Dec(const String& text, double& outDegrees) {
   return true;
 }
 
-void writeReplyToClient(WiFiClient& client, const String& payload) {
-  if (!client || !client.connected()) {
-    return;
-  }
-  client.print(payload);
-  client.print('#');
-}
-
 void writeReplyToUsb(const String& payload) {
   if (!Serial) {
     return;
@@ -270,25 +256,13 @@ void handleLx200Command(const String& cmd, ReplyFn&& reply) {
     return;
   }
 
-  if (cmd == ":Qn") {
+  if (cmd == ":Qn" || cmd == ":Qs") {
     g_lx200.manualDecDir = 0;
     applyManualMotion();
     reply("1");
     return;
   }
-  if (cmd == ":Qs") {
-    g_lx200.manualDecDir = 0;
-    applyManualMotion();
-    reply("1");
-    return;
-  }
-  if (cmd == ":Qe") {
-    g_lx200.manualRaDir = 0;
-    applyManualMotion();
-    reply("1");
-    return;
-  }
-  if (cmd == ":Qw") {
+  if (cmd == ":Qe" || cmd == ":Qw") {
     g_lx200.manualRaDir = 0;
     applyManualMotion();
     reply("1");
@@ -336,6 +310,30 @@ void handleLx200Command(const String& cmd, ReplyFn&& reply) {
     return;
   }
 
+  // Product / firmware identification. INDI's LX200 drivers issue these
+  // during handshake and refuse to progress without a sensible response.
+  if (cmd == ":GVP") {
+    reply("NERDSTAR-eQ");
+    return;
+  }
+  if (cmd == ":GVN") {
+    reply(config::LX200_FIRMWARE_VERSION);
+    return;
+  }
+  if (cmd == ":GVD") {
+    reply(__DATE__);
+    return;
+  }
+  if (cmd == ":GVT") {
+    reply(__TIME__);
+    return;
+  }
+  if (cmd == ":GVF") {
+    reply(String("NERDSTAR-eQ ") + config::LX200_FIRMWARE_VERSION +
+          " built " + __DATE__);
+    return;
+  }
+
   if (cmd.startsWith(":Sr")) {
     double raTarget = 0.0;
     if (!parseLx200Ra(cmd.substring(3), raTarget)) {
@@ -362,7 +360,7 @@ void handleLx200Command(const String& cmd, ReplyFn&& reply) {
 
   if (cmd == ":MS") {
     if (!g_lx200.hasTargetRa || !g_lx200.hasTargetDec) {
-      reply("1");
+      reply("1<no target>");
       return;
     }
     g_lx200.manualRaDir = 0;
@@ -374,36 +372,45 @@ void handleLx200Command(const String& cmd, ReplyFn&& reply) {
     return;
   }
 
-  if (cmd.startsWith(":SC")) {
-    // Date command accepted for compatibility.
+  // Distance bars. Return empty (idle) or non-empty (slewing) body.
+  if (cmd == ":D") {
+    reply(g_lx200.slewMode == SlewMode::kGoto ? "|" : "");
+    return;
+  }
+
+  // Site / location / time commands are acknowledged so that INDI-style
+  // hosts can progress their handshake, even though the firmware itself
+  // does not yet use geographic coordinates.
+  if (cmd.startsWith(":SC") || cmd.startsWith(":SL") ||
+      cmd.startsWith(":SG") || cmd.startsWith(":Sg") ||
+      cmd.startsWith(":St")) {
     reply("1");
     return;
   }
 
-  if (cmd.startsWith(":SL")) {
-    // Time command accepted for compatibility.
+  // Slew-rate selection, tracking-rate selection and precision toggle are
+  // accepted silently - the LX200 spec does not require a response and the
+  // firmware does not currently map them to mount behaviour.
+  if (cmd == ":RG" || cmd == ":RC" || cmd == ":RM" || cmd == ":RS" ||
+      cmd.startsWith(":Rs") || cmd.startsWith(":Rg")) {
+    return;
+  }
+  if (cmd == ":TQ" || cmd == ":TS" || cmd == ":TL" || cmd == ":T+" ||
+      cmd == ":T-" || cmd.startsWith(":TM")) {
+    return;
+  }
+  if (cmd == ":U") {
+    return;
+  }
+
+  // Park / home. Acknowledge as "done" - stopAll() halts motion.
+  if (cmd == ":hP" || cmd == ":hC" || cmd == ":hF") {
+    motion::stopAll();
     reply("1");
     return;
   }
 
   reply("0");
-}
-
-void processTcpClient() {
-  while (g_client && g_client.connected() && g_client.available()) {
-    char c = static_cast<char>(g_client.read());
-    if (c == '#') {
-      handleLx200Command(g_tcpCommandBuffer,
-                         [&](const String& payload) {
-                           writeReplyToClient(g_client, payload);
-                         });
-      g_tcpCommandBuffer = "";
-    } else if (isPrintable(static_cast<unsigned char>(c))) {
-      if (g_tcpCommandBuffer.length() < 96) {
-        g_tcpCommandBuffer += c;
-      }
-    }
-  }
 }
 
 void processUsbClient() {
@@ -426,73 +433,13 @@ void processUsbClient() {
 }  // namespace
 
 void init() {
-  g_server.begin();
-  g_server.setNoDelay(true);
+  g_usbCommandBuffer = "";
+  g_lx200 = Lx200State{};
 }
 
 void update() {
-  if (!g_client || !g_client.connected()) {
-    WiFiClient candidate = g_server.available();
-    if (candidate) {
-      g_client.stop();
-      g_client = candidate;
-      g_tcpCommandBuffer = "";
-    }
-  }
-  processTcpClient();
   processUsbClient();
   updateGotoSlew();
-}
-
-bool enableAccessPoint() {
-  if (g_accessPointActive) {
-    return true;
-  }
-
-  if (wifi_ota::isEnabled()) {
-    wifi_ota::setEnabled(false);
-  }
-
-  WiFi.mode(WIFI_AP);
-  bool ok = WiFi.softAP(config::WIFI_AP_SSID, config::WIFI_AP_PASSWORD,
-                        config::WIFI_AP_CHANNEL);
-  if (!ok) {
-    return false;
-  }
-  g_accessPointActive = true;
-  g_accessPointIp = WiFi.softAPIP();
-  return true;
-}
-
-void disableAccessPoint() {
-  if (!g_accessPointActive) {
-    return;
-  }
-  WiFi.softAPdisconnect(true);
-  WiFi.mode(WIFI_OFF);
-  g_accessPointActive = false;
-  g_accessPointIp = IPAddress();
-}
-
-bool accessPointActive() { return g_accessPointActive; }
-
-bool clientConnected() { return g_client && g_client.connected(); }
-
-const char* accessPointSsid() { return config::WIFI_AP_SSID; }
-
-String accessPointIp() {
-  if (!g_accessPointActive) {
-    return String();
-  }
-  return g_accessPointIp.toString();
-}
-
-void forceDisconnectClient() {
-  if (g_client) {
-    g_client.stop();
-  }
-  g_client = WiFiClient();
-  g_tcpCommandBuffer = "";
 }
 
 }  // namespace stellarium_link
