@@ -19,8 +19,7 @@ This revision rebuilds the motion model around **equatorial movement math**:
 - EEPROM-backed configuration (calibration, inversion, backlash)
 - UART command protocol between controller roles
 - LX200-compatible control over USB serial (Stellarmate/INDI compatible)
-- Optional Stellarium LX200-compatible TCP bridge
-- RTC support and OTA/Wi-Fi utility hooks
+- RTC support
 
 ---
 
@@ -65,17 +64,35 @@ Tracking:
 
 ---
 
-### LX200 control (Stellarmate via USB)
+### LX200 control (Stellarmate / INDI via USB)
 
-NERDSTAR now accepts LX200 commands over the USB serial connection (`Serial`) in addition to the TCP bridge.
+NERDSTAR exposes an LX200-compatible command channel on the USB serial port
+(`Serial`). The port runs at **9600 baud** so it matches the default speed of
+the Meade-compatible INDI drivers shipped with Stellarmate.
 
-Implemented LX200 command groups include:
+Implemented LX200 command groups:
 - Position queries: `:GR#`, `:GD#`
 - Target setup + GoTo: `:SrHH:MM:SS#`, `:Sd+DD*MM:SS#`, `:MS#`
-- Manual slewing: `:Mn#`, `:Ms#`, `:Me#`, `:Mw#`, stop with `:Qn#`, `:Qs#`, `:Qe#`, `:Qw#`, `:Q#`
-- Compatibility acknowledgements: `:SC...#`, `:SL...#`
+- Manual slewing: `:Mn#`, `:Ms#`, `:Me#`, `:Mw#`; stop via `:Qn#`, `:Qs#`, `:Qe#`, `:Qw#`, `:Q#`
+- Product / firmware identification: `:GVP#`, `:GVN#`, `:GVF#`, `:GVD#`, `:GVT#`
+- Observer site (persisted in EEPROM):
+  - `:StsDD*MM[:SS]#` - set latitude (north-positive, stored in `SiteLocation.latitudeDeg`)
+  - `:SgDDD*MM[:SS]#` - set longitude (Meade's west-positive form is converted to ISO east-positive on the fly)
+  - `:SGsHH.H#` / `:SGsHH:MM#` - UTC offset
+  - `:Gt#` / `:Gg#` - read back stored latitude / longitude
+- Host-supplied date / time feed the DS3231 RTC:
+  - `:SCMM/DD/YY#` (or `:SCMM/DD/YYYY#`) buffers the date
+  - `:SLHH:MM:SS#` completes the pair; the firmware combines both with the
+    stored UTC offset and calls `time_utils::setUtcEpoch(...)`
+- Slew-rate / tracking-rate / precision toggles silently accepted: `:RG#`, `:RC#`, `:RM#`, `:RS#`, `:TQ#`, `:TS#`, `:TL#`, `:T+#`, `:T-#`, `:U#`
+- Distance bars: `:D#` (empty when idle, `|#` while slewing)
+- Park / home: `:hP#`, `:hC#`, `:hF#` (stop motion and acknowledge)
 
-This allows Stellarmate's LX200-compatible drivers to control Nerdstar directly over USB.
+Declination replies are clamped to `[-90°, +90°]` so INDI never receives
+out-of-range coordinates from an uncalibrated axis.
+
+USB serial is reserved exclusively for LX200 traffic - the firmware does not
+print any debug or boot banners on `Serial`.
 
 ## Build
 

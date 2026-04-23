@@ -9,9 +9,8 @@
 #include "motion.h"
 #include "state.h"
 #include "storage.h"
-#include "stellarium_link.h"
+#include "lx200_link.h"
 #include "time_utils.h"
-#include "wifi_ota.h"
 
 namespace {
 
@@ -19,9 +18,10 @@ TaskHandle_t motorTaskHandle = nullptr;
 TaskHandle_t commandTaskHandle = nullptr;
 
 void initSerial() {
-  Serial.begin(config::USB_DEBUG_BAUD);
+  // USB serial is the LX200 command channel - no stray boot banner, otherwise
+  // Stellarmate/INDI receives it as protocol noise on connect.
+  Serial.begin(config::USB_LX200_BAUD);
   delay(50);
-  Serial.println("[MAIN] Boot");
 }
 
 bool parseAxis(const String& value, Axis& outAxis) {
@@ -283,17 +283,13 @@ void setup() {
   motion::setAltitudeLimitsEnabled(true);
   time_utils::initRtc();
   comm::initLink();
-  wifi_ota::init();
-  stellarium_link::init();
+  lx200_link::init();
 
   xTaskCreatePinnedToCore(motorTask, "motor", 4096, nullptr, 2, &motorTaskHandle, 1);
   xTaskCreatePinnedToCore(commandTask, "command", 6144, nullptr, 1, &commandTaskHandle, 0);
-
-  Serial.println("[MAIN] Ready");
 }
 
 void loop() {
-  wifi_ota::update();
-  stellarium_link::update();
+  lx200_link::update();
   delay(10);
 }

@@ -135,16 +135,11 @@ bool sendMessage(const WireMessage& message) {
   }
   const size_t length = static_cast<size_t>(line.length());
   if (length > Comms::kMaxPayloadSize) {
-    if (Serial) {
-      Serial.println("[COMM] TX line too long for packet buffer");
-    }
+    // USB Serial is reserved for LX200 traffic; swallow errors silently.
     return false;
   }
   if (!commsLink.send(kAsciiChannel,
                       reinterpret_cast<const uint8_t*>(line.c_str()), length)) {
-    if (Serial) {
-      Serial.println("[COMM] Failed to queue packet for transmission");
-    }
     return false;
   }
   return true;
@@ -212,27 +207,10 @@ void handleHeartbeat(void*) {
   // Nothing to do; link state is tracked inside Comms.
 }
 
-void handleError(Comms::Error error, int8_t rawStatus, void*) {
-  if (!Serial) {
-    return;
-  }
-  switch (error) {
-    case Comms::Error::kPayloadTooLarge:
-      Serial.println("[COMM] Payload too large for TX buffer");
-      break;
-    case Comms::Error::kInvalidPayload:
-      Serial.println("[COMM] Invalid payload pointer");
-      break;
-    case Comms::Error::kHeartbeatLost:
-      Serial.println("[COMM] Heartbeat lost");
-      break;
-    case Comms::Error::kSerialTransfer:
-      Serial.printf("[COMM] SerialTransfer error: %d\n", rawStatus);
-      break;
-    case Comms::Error::kNone:
-    default:
-      break;
-  }
+void handleError(Comms::Error /*error*/, int8_t /*rawStatus*/, void*) {
+  // USB Serial is reserved for the LX200 command channel - do not print
+  // diagnostic messages there. Error state is still accessible through
+  // commsLink.lastError() if the application needs to inspect it.
 }
 
 }  // namespace

@@ -66,13 +66,34 @@ Koordinaten/Schritte:
 
 ---
 
-## 5) Stellarium
+## 5) Stellarmate / INDI (USB)
 
-Die Firmware enthält einen TCP-Server (LX200-kompatibel) über den konfigurierten Port.
-Für Remote-Steuerung:
-1. AP/WLAN aktivieren
-2. Host-IP ermitteln
-3. In Stellarium ein LX200-/Telescope-Gerät mit passendem Port eintragen
+Die Firmware stellt auf dem USB-Serial-Port einen LX200-kompatiblen
+Kommandokanal bereit. Die Anbindung ist rein kabelgebunden – es gibt weder
+WLAN noch TCP.
+
+1. ESP32 per USB mit dem Stellarmate / Raspberry Pi verbinden.
+2. In Stellarmate den Treiber „LX200 Generic" (oder kompatibel) wählen.
+3. Serial-Port auf den neu entstandenen `/dev/ttyUSB*` bzw. `/dev/ttyACM*`
+   setzen und **9600 baud** konfigurieren.
+4. Ein Handshake-Kommando (`:GR#`, `:GVP#`) liefert direkt nach dem Boot gültige
+   Antworten – es werden keine Debug-Nachrichten über USB gesendet.
+
+### 5.1 Standort- und Zeitsynchronisation
+
+Der Stellarmate schickt beim Verbinden üblicherweise den Standort (`:St`,
+`:Sg`), den UTC-Offset (`:SG`) sowie Datum und Uhrzeit (`:SC`, `:SL`). Die
+Firmware:
+
+- speichert Breitengrad (nord-positiv) und Längengrad
+  (intern ost-positiv, bei `:Gg#` wird wieder west-positiv ausgegeben) in
+  EEPROM,
+- merkt sich den UTC-Offset in Minuten und
+- kombiniert `:SC`+`:SL` mit dem gespeicherten Offset zu einer UTC-Epoch und
+  stellt damit die DS3231-RTC.
+
+Vorher gespeicherte Werte bleiben über einen Reboot erhalten und können über
+`:Gt#` / `:Gg#` zurückgelesen werden.
 
 ---
 
