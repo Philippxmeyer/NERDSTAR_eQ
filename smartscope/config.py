@@ -7,4 +7,4 @@ SERIAL_PORT      = "/dev/ttyUSB0"
 SERIAL_BAUD      = 9600
 STORAGE_PATH     = "/mnt/storage"
 ASTAP_PATH       = "/usr/bin/astap"
-CATALOG_PATH     = "/data/catalog.xml"
+CATALOG_PATH     = "/home/pi/smartscope/data/catalog.xml"

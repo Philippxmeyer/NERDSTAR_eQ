@@ -151,7 +151,7 @@ SERIAL_PORT      = "/dev/ttyUSB0"   # or "/dev/nerdstar" (udev symlink)
 SERIAL_BAUD      = 9600
 STORAGE_PATH     = "/mnt/storage"
 ASTAP_PATH       = "/usr/bin/astap"
-CATALOG_PATH     = "/data/catalog.xml"
+CATALOG_PATH     = "/home/pi/smartscope/data/catalog.xml"
 ```
 
 Edit `/home/pi/smartscope/config.py` and restart the service after any change:
@@ -164,9 +164,9 @@ sudo systemctl restart smartscope
 
 ## Object catalog
 
-The bundled catalog lives at `data/catalog.xml` in the repository and is installed to `/data/catalog.xml` by `install.sh`.  It contains 122 objects: 7 planets, the Moon, 49 bright stars, 34 clusters, 4 double stars, 16 galaxies, 7 nebulae, and 4 planetary nebulae.
+The bundled catalog lives at `smartscope/data/catalog.xml` in the repository and is copied to `/home/pi/smartscope/data/catalog.xml` by `install.sh` as part of the normal file rsync.  It contains 112 objects: 7 planets, the Moon, 49 bright stars, 34 clusters, 4 double stars, 16 galaxies, 7 nebulae, and 4 planetary nebulae.
 
-You can replace it at any time by uploading a new file via the web UI (`/catalog/upload`) or by placing a file at `/data/catalog.xml` and restarting the service.
+You can replace it at any time by uploading a new file via the web UI (`/catalog/upload`) or by replacing `/home/pi/smartscope/data/catalog.xml` and restarting the service.
 
 ### XML format
 
