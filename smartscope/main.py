@@ -57,6 +57,18 @@ _frames_captured: int = 0
 _last_solve_fits: Optional[str] = None
 _shutdown_requested: bool = False
 
+# Live preview settings — used by the SSE /preview stream.
+#   mode:         "live" (continuous camera frames) or "stack" (running stack)
+#   auto:         True = picamera2 AE/AWB; False = manual exposure + gain
+#   exposure_s:   manual exposure time in seconds
+#   gain:         manual analogue gain
+_preview_settings: dict = {
+    "mode": "live",
+    "auto": True,
+    "exposure_s": 0.2,
+    "gain": 1.0,
+}
+
 
 async def request_shutdown(source: str) -> None:
     """Park first, then trigger host shutdown (non-blocking park request)."""
@@ -197,11 +209,71 @@ async def preview_stream(request: Request):
         while True:
             if await request.is_disconnected():
                 break
-            jpeg = stacker.get_preview_jpeg()
+
+            mode = _preview_settings["mode"]
+            # Force stack output while a capture sequence is actively running:
+            # the camera executor is busy with long exposures, so live-grabbing
+            # would just stall the stream.
+            use_live = mode == "live" and not _capture_enabled
+
+            if use_live:
+                try:
+                    array = await camera.capture_preview(
+                        _preview_settings["exposure_s"],
+                        _preview_settings["gain"],
+                        _preview_settings["auto"],
+                    )
+                    jpeg = stack_module.render_preview_jpeg(array)
+                    interval = (
+                        0.6
+                        if _preview_settings["auto"]
+                        else min(max(_preview_settings["exposure_s"] + 0.3, 0.6), 5.0)
+                    )
+                except Exception as exc:
+                    logger.debug("Live preview capture failed: %s", exc)
+                    jpeg = stacker.get_preview_jpeg()
+                    interval = 2.0
+            else:
+                jpeg = stacker.get_preview_jpeg()
+                interval = 2.0
+
             yield {"data": base64.b64encode(jpeg).decode("ascii")}
-            await asyncio.sleep(2.0)
+            await asyncio.sleep(interval)
 
     return EventSourceResponse(generator())
+
+
+# ---------------------------------------------------------------------------
+# Preview settings (live finder / focus mode)
+# ---------------------------------------------------------------------------
+
+class PreviewSettingsRequest(BaseModel):
+    mode: Optional[str] = None         # "live" | "stack"
+    auto: Optional[bool] = None
+    exposure_s: Optional[float] = None
+    gain: Optional[float] = None
+
+
+@app.get("/preview/settings")
+async def get_preview_settings():
+    return _preview_settings
+
+
+@app.post("/preview/settings")
+async def set_preview_settings(req: PreviewSettingsRequest):
+    if req.mode is not None:
+        if req.mode not in ("live", "stack"):
+            return JSONResponse(
+                {"error": "mode must be 'live' or 'stack'"}, status_code=400
+            )
+        _preview_settings["mode"] = req.mode
+    if req.auto is not None:
+        _preview_settings["auto"] = bool(req.auto)
+    if req.exposure_s is not None:
+        _preview_settings["exposure_s"] = max(0.0001, float(req.exposure_s))
+    if req.gain is not None:
+        _preview_settings["gain"] = max(1.0, float(req.gain))
+    return _preview_settings
 
 
 # ---------------------------------------------------------------------------
@@ -223,6 +295,7 @@ async def status():
         "catalog_loaded": catalog.catalog_size() > 0,
         "capture_active": _capture_enabled,
         "frames_captured": _frames_captured,
+        "preview": _preview_settings,
     }
 
 

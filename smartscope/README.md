@@ -233,6 +233,23 @@ Type an object name or Messier code in the search field.  Planets show their cur
 
 Hold a direction button to slew.  Release to stop.  The selected slew speed (Guide / Center / Find / Max) applies.
 
+### Live preview (finder / focus)
+
+The Preview section now has two modes, switchable in the UI:
+
+- **Live** – continuous frames straight from the HQ Camera, useful while
+  slewing or focusing.  Sub-mode:
+  - **Auto** – Picamera2 auto-exposure & auto white balance.  Recommended for
+    daylight focusing or bright targets.
+  - **Manual** – fixed exposure time (s) + analogue gain.  Recommended for
+    night-time star focusing; start with ~0.2 s @ gain 4–8 and adjust.
+- **Stack** – the running stack of captured frames (legacy behaviour).
+
+The live preview is automatically suspended while a `/capture` sequence is
+running so the camera can spend its time on the configured long exposures;
+the stream falls back to showing the running stack until the sequence
+finishes.
+
 ### Capture & Stack
 
 Set exposure time, analogue gain, and frame count, then tap **▶ Capture**.  
@@ -262,7 +279,9 @@ All endpoints are at `http://192.168.4.1:8000`.  Request/response bodies are JSO
 |---|---|---|
 | `GET` | `/` | Serve web UI |
 | `GET` | `/status` | JSON status snapshot |
-| `GET` | `/preview` | SSE stream – base64 JPEG every 2 s |
+| `GET` | `/preview` | SSE stream – base64 JPEG (live or stack, ~0.6–2 s cadence) |
+| `GET` | `/preview/settings` | Current preview mode / exposure |
+| `POST` | `/preview/settings` | Update preview mode / auto / exposure / gain |
 
 #### `GET /status` response
 
@@ -278,7 +297,8 @@ All endpoints are at `http://192.168.4.1:8000`.  Request/response bodies are JSO
   "esp32_connected": true,
   "catalog_loaded": true,
   "capture_active": true,
-  "frames_captured": 12
+  "frames_captured": 12,
+  "preview": {"mode": "live", "auto": true, "exposure_s": 0.2, "gain": 1.0}
 }
 ```
 
@@ -313,6 +333,7 @@ Returns a JSON array of matching catalog objects.  Planet positions are calculat
 |---|---|---|
 | `POST` | `/capture` | `{"exposure": 2.0, "gain": 1.0, "frames": 100}` |
 | `POST` | `/solve` | _(no body)_ – captures a frame and runs ASTAP |
+| `POST` | `/preview/settings` | `{"mode": "live", "auto": true, "exposure_s": 0.2, "gain": 1.0}` (any subset) |
 
 ### Mount control
 

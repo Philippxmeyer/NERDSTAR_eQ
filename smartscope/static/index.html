@@ -284,6 +284,32 @@
   <div class="section-title">Preview</div>
   <img id="preview-img" src="" alt="">
   <div class="preview-status" id="preview-status">Waiting for frames…</div>
+
+  <div style="margin-top:10px;">
+    <label>Mode</label>
+    <div class="speed-row">
+      <button id="prev-mode-live"  onclick="setPreviewMode('live')" >Live</button>
+      <button id="prev-mode-stack" onclick="setPreviewMode('stack')">Stack</button>
+    </div>
+  </div>
+
+  <div id="live-controls" style="margin-top:10px;">
+    <label>Live Exposure</label>
+    <div class="speed-row">
+      <button id="prev-auto-on"  onclick="setPreviewAuto(true)" >Auto</button>
+      <button id="prev-auto-off" onclick="setPreviewAuto(false)">Manual</button>
+    </div>
+    <div id="prev-manual" class="exp-row" style="margin-top:8px;display:none;">
+      <div class="exp-field">
+        <label>Exposure (s)</label>
+        <input type="number" id="prev-exp" value="0.2" min="0.001" max="10" step="0.05" onchange="pushPreviewSettings()">
+      </div>
+      <div class="exp-field">
+        <label>Gain</label>
+        <input type="number" id="prev-gain" value="1.0" min="1" max="16" step="0.5" onchange="pushPreviewSettings()">
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Exposure controls -->
@@ -384,6 +410,7 @@
 let trackingEnabled = false;
 let currentRate = 'center';
 let previewSrc = '';
+let previewSettings = { mode: 'live', auto: true, exposure_s: 0.2, gain: 1.0 };
 
 // --------------------------------------------------------------------------
 // Overlay / Init
@@ -631,6 +658,45 @@ async function uploadCatalog(input) {
 }
 
 // --------------------------------------------------------------------------
+// Preview settings (live finder / focus mode)
+// --------------------------------------------------------------------------
+
+function applyPreviewUI() {
+  document.getElementById('prev-mode-live' ).classList.toggle('active-btn', previewSettings.mode === 'live');
+  document.getElementById('prev-mode-stack').classList.toggle('active-btn', previewSettings.mode === 'stack');
+  document.getElementById('prev-auto-on' ).classList.toggle('active-btn',  previewSettings.auto === true);
+  document.getElementById('prev-auto-off').classList.toggle('active-btn',  previewSettings.auto === false);
+
+  document.getElementById('live-controls').style.display = previewSettings.mode === 'live' ? '' : 'none';
+  document.getElementById('prev-manual'  ).style.display = (previewSettings.mode === 'live' && !previewSettings.auto) ? '' : 'none';
+
+  const expEl  = document.getElementById('prev-exp');
+  const gainEl = document.getElementById('prev-gain');
+  if (document.activeElement !== expEl ) expEl .value = previewSettings.exposure_s;
+  if (document.activeElement !== gainEl) gainEl.value = previewSettings.gain;
+}
+
+async function pushPreviewSettings(patch = {}) {
+  const exp  = parseFloat(document.getElementById('prev-exp').value);
+  const gain = parseFloat(document.getElementById('prev-gain').value);
+  const body = {
+    ...patch,
+    exposure_s: isNaN(exp)  ? previewSettings.exposure_s : exp,
+    gain:       isNaN(gain) ? previewSettings.gain       : gain,
+  };
+  try {
+    const res = await postJson('/preview/settings', body);
+    previewSettings = res;
+    applyPreviewUI();
+  } catch (e) {
+    console.warn('Preview settings update failed:', e);
+  }
+}
+
+function setPreviewMode(mode) { pushPreviewSettings({ mode }); }
+function setPreviewAuto(auto) { pushPreviewSettings({ auto }); }
+
+// --------------------------------------------------------------------------
 // SSE preview
 // --------------------------------------------------------------------------
 
@@ -648,7 +714,13 @@ function startPreviewStream() {
       if (data && data.length > 10) {
         img.src = 'data:image/jpeg;base64,' + data;
         previewSrc = img.src;
-        statusEl.textContent = 'Live';
+        if (previewSettings.mode === 'live') {
+          statusEl.textContent = previewSettings.auto
+            ? 'Live (auto exposure)'
+            : `Live (manual ${previewSettings.exposure_s}s @ gain ${previewSettings.gain})`;
+        } else {
+          statusEl.textContent = 'Stack';
+        }
       }
     };
 
@@ -712,6 +784,16 @@ async function pollStatus() {
       applyTrackingUI();
     }
 
+    // Sync preview settings (only if server state actually changed)
+    if (s.preview && (
+        s.preview.mode       !== previewSettings.mode ||
+        s.preview.auto       !== previewSettings.auto ||
+        s.preview.exposure_s !== previewSettings.exposure_s ||
+        s.preview.gain       !== previewSettings.gain)) {
+      previewSettings = s.preview;
+      applyPreviewUI();
+    }
+
   } catch (e) {
     // silently ignore polling errors
   }
@@ -729,6 +811,7 @@ window.addEventListener('load', () => {
     document.getElementById('warning').style.display = 'block';
   }
 
+  applyPreviewUI();
   startPreviewStream();
   pollStatus();
 });
