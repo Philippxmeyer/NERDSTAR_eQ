@@ -221,7 +221,7 @@ Open **http://192.168.4.1:8000** on your iPhone after connecting to the `SmartSc
 On first load, a dialog asks for UTC time and your location.  
 - Time is pre-filled from your iPhone's clock.  
 - Location is auto-filled if you allow browser location access.  
-- Tap **Initialise** to push time and location to the ESP32 RTC via LX200.
+- Tap **Initialise** to push time and location to the ESP32's software clock via LX200. The firmware has no hardware RTC; SmartScope re-pushes the UTC time every 30 minutes to keep the ESP32 clock in sync.
 
 The warning banner at the top disappears once the mount is initialised.
 
@@ -244,7 +244,7 @@ The live preview updates every 2 seconds with a percentile-stretched JPEG of the
 Tap **⊕ Solve** to capture a fresh frame and run ASTAP.  On success:
 - The pointing offset (`state.ra_offset`, `state.dec_offset`) is updated.
 - All subsequent GoTo commands apply this correction automatically.
-- The ESP32 RTC is refreshed via `sync_time_location`.
+- The ESP32 software clock is refreshed via `sync_time_location`.
 
 ### Tracking toggle
 

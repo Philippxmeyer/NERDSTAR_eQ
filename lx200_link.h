@@ -9,7 +9,9 @@
 //   * parsing inbound commands,
 //   * driving the motion layer for manual / goto slews,
 //   * persisting site location (:Sg / :St / :SG) and
-//   * pushing date + time (:SC / :SL) into the RTC.
+//   * seeding the software clock from host date + time (:SC / :SL); the
+//     firmware no longer carries a hardware RTC, so the host is expected
+//     to push a fresh time periodically.
 namespace lx200_link {
 
 void init();

@@ -21,10 +21,6 @@ constexpr uart_port_t COMM_UART_NUM = UART_NUM_2;
 constexpr uint8_t COMM_TX_PIN = 17;
 constexpr uint8_t COMM_RX_PIN = 16;
 
-// RTC I2C pins (DS3231)
-constexpr uint8_t RTC_SDA_PIN = 21;
-constexpr uint8_t RTC_SCL_PIN = 22;
-
 // Communication
 constexpr uint32_t COMM_BAUD = 57600;
 constexpr uint32_t COMM_HEARTBEAT_INTERVAL_MS = 200;

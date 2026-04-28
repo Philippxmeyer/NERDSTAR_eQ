@@ -2,8 +2,9 @@
 
 Startup tasks:
   • lx200 serial worker
-  • position_loop  – polls :GR# / :GD# every 2 s
-  • capture_loop   – continuous capture when tracking is enabled
+  • position_loop    – polls :GR# / :GD# every 2 s
+  • time_resync_loop – re-pushes UTC to the ESP32 software clock every 30 min
+  • capture_loop     – continuous capture when tracking is enabled
 
 Run:  python3 main.py   (or via systemd unit)
 """
@@ -93,6 +94,26 @@ async def position_loop() -> None:
         await asyncio.sleep(2.0)
 
 
+# Re-push UTC into the ESP32 software clock at this interval. The firmware no
+# longer carries a hardware RTC, so its clock drifts at the ESP32 crystal's
+# rate (~30 ppm => a few seconds per day). 30 minutes keeps the worst-case
+# drift well below 0.1 s, which is plenty for tracking and plate solving.
+_TIME_RESYNC_INTERVAL_S = 30 * 60
+
+
+async def time_resync_loop() -> None:
+    """Periodically re-push UTC to the ESP32 software clock."""
+    while True:
+        await asyncio.sleep(_TIME_RESYNC_INTERVAL_S)
+        if scope_state.utc_time_ref is None:
+            # /init has not happened yet — nothing meaningful to push.
+            continue
+        try:
+            await lx200.sync_time_only(scope_state)
+        except Exception as exc:
+            logger.debug("time resync failed: %s", exc)
+
+
 async def capture_loop() -> None:
     """Capture frames continuously while tracking is enabled."""
     global _capture_enabled, _frames_captured, _last_solve_fits
@@ -132,6 +153,7 @@ async def capture_loop() -> None:
 async def startup() -> None:
     await lx200.start_worker(scope_state)
     asyncio.create_task(position_loop())
+    asyncio.create_task(time_resync_loop())
     asyncio.create_task(capture_loop())
     if onoffshim is not None:
         onoffshim.set_pixel(0.0, 0.0, 0.0)

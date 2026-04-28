@@ -29,7 +29,7 @@ struct Lx200State {
   int8_t manualDecDir = 0;
 
   // :SC sets the date; we buffer it until :SL (local time) arrives and then
-  // combine both into a UTC epoch that goes into the RTC.
+  // combine both into a UTC epoch that seeds the software clock.
   bool hasPendingDate = false;
   int pendingYear = 1970;   // four-digit
   int pendingMonth = 1;     // 1..12
@@ -497,6 +497,47 @@ void handleLx200Command(const String& cmd, ReplyFn&& reply) {
     return;
   }
 
+  // Time / date read-back. The mount has no hardware RTC: the values are
+  // computed from the last :SC/:SL sync plus elapsed millis(). The host can
+  // poll these to detect drift and decide when to push a fresh sync.
+  if (cmd == ":GC" || cmd == ":GL" || cmd == ":GG") {
+    int32_t utcOffsetMinutes = storage::getConfig().site.utcOffsetMinutes;
+
+    if (cmd == ":GG") {
+      double offsetHours =
+          static_cast<double>(utcOffsetMinutes) / 60.0;
+      char buf[16];
+      snprintf(buf, sizeof(buf), "%+05.1f", offsetHours);
+      reply(buf);
+      return;
+    }
+
+    time_t utcEpoch = time_utils::currentUtcEpoch();
+    time_t localEpoch =
+        utcEpoch + static_cast<time_t>(utcOffsetMinutes) * 60;
+    struct tm tmLocal{};
+    gmtime_r(&localEpoch, &tmLocal);
+
+    char buf[16];
+    if (cmd == ":GC") {
+      snprintf(buf, sizeof(buf), "%02d/%02d/%02d", tmLocal.tm_mon + 1,
+               tmLocal.tm_mday, tmLocal.tm_year % 100);
+    } else {
+      snprintf(buf, sizeof(buf), "%02d:%02d:%02d", tmLocal.tm_hour,
+               tmLocal.tm_min, tmLocal.tm_sec);
+    }
+    reply(buf);
+    return;
+  }
+
+  // Custom: seconds elapsed since the last :SC/:SL sync. Lets the host detect
+  // a stale software clock and trigger a re-sync. Returns "0" until the first
+  // sync arrives (matched by hasValidTime() returning false).
+  if (cmd == ":GTS") {
+    reply(String(time_utils::secondsSinceLastSync()));
+    return;
+  }
+
   // Product / firmware identification. INDI's LX200 drivers issue these
   // during handshake and refuse to progress without a sensible response.
   if (cmd == ":GVP") {
@@ -622,7 +663,7 @@ void handleLx200Command(const String& cmd, ReplyFn&& reply) {
   }
 
   // Local time: `HH:MM:SS`. Combined with the buffered :SC date the result
-  // lands in the DS3231.
+  // seeds the software clock used for tracking.
   if (cmd.startsWith(":SL")) {
     double hoursDeg = 0.0;
     if (!parseLx200Ra(cmd.substring(3), hoursDeg)) {

@@ -146,7 +146,15 @@ Firmware:
   EEPROM,
 - merkt sich den UTC-Offset in Minuten und
 - kombiniert `:SC`+`:SL` mit dem gespeicherten Offset zu einer UTC-Epoch und
-  stellt damit die DS3231-RTC.
+  setzt damit die interne Software-Uhr (es gibt keine Hardware-RTC mehr; die
+  ESP32-Zeit wird zwischen den Hosts-Updates über `millis()` fortgeschrieben).
+
+Die Zeit kann über die LX200-Standardkommandos `:GC#` (Datum), `:GL#`
+(Lokalzeit) und `:GG#` (UTC-Offset) zurückgelesen werden. Zusätzlich liefert
+das proprietäre `:GTS#` die Sekunden seit dem letzten `:SC`/`:SL`-Sync, damit
+der Host bei Bedarf gezielt eine neue Synchronisation pushen kann.
+SmartScope synchronisiert die Uhr nach dem ersten `/init` automatisch alle
+30 Minuten neu.
 
 Vorher gespeicherte Werte bleiben über einen Reboot erhalten und können über
 `:Gt#` / `:Gg#` zurückgelesen werden.
