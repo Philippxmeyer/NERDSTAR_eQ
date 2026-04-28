@@ -20,23 +20,37 @@ def render_preview_jpeg(
     Used both by the running stack and by the live finder preview so the
     web UI sees consistent dimensions and contrast.
     """
-    if array.ndim == 3:
-        gray = np.mean(array, axis=2).astype(np.float32)
-    else:
-        gray = array.astype(np.float32)
+    data = array.astype(np.float32)
 
-    if stretch:
-        p_low, p_high = np.percentile(gray, [0.5, 99.5])
-        if p_high > p_low:
-            data = np.clip(
-                (gray - p_low) / (p_high - p_low) * 255.0, 0, 255
-            ).astype(np.uint8)
+    if data.ndim == 3 and data.shape[2] >= 3:
+        rgb = data[:, :, :3]
+        if stretch:
+            out = np.zeros_like(rgb, dtype=np.uint8)
+            for c in range(3):
+                channel = rgb[:, :, c]
+                p_low, p_high = np.percentile(channel, [0.5, 99.5])
+                if p_high > p_low:
+                    out[:, :, c] = np.clip(
+                        (channel - p_low) / (p_high - p_low) * 255.0, 0, 255
+                    ).astype(np.uint8)
+            data_u8 = out
         else:
-            data = np.zeros_like(gray, dtype=np.uint8)
+            data_u8 = np.clip(rgb, 0, 255).astype(np.uint8)
+        img = Image.fromarray(data_u8, mode="RGB")
     else:
-        data = np.clip(gray, 0, 255).astype(np.uint8)
+        gray = data if data.ndim == 2 else np.squeeze(data).astype(np.float32)
+        if stretch:
+            p_low, p_high = np.percentile(gray, [0.5, 99.5])
+            if p_high > p_low:
+                data_u8 = np.clip(
+                    (gray - p_low) / (p_high - p_low) * 255.0, 0, 255
+                ).astype(np.uint8)
+            else:
+                data_u8 = np.zeros_like(gray, dtype=np.uint8)
+        else:
+            data_u8 = np.clip(gray, 0, 255).astype(np.uint8)
+        img = Image.fromarray(data_u8, mode="L")
 
-    img = Image.fromarray(data, mode="L")
     img = img.resize(size, Image.LANCZOS)
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=75)
@@ -46,7 +60,7 @@ def render_preview_jpeg(
 def empty_preview_jpeg() -> bytes:
     """Return a 1x1 black JPEG placeholder."""
     buf = io.BytesIO()
-    Image.new("L", (1, 1), 0).save(buf, format="JPEG")
+    Image.new("RGB", (1, 1), (0, 0, 0)).save(buf, format="JPEG")
     return buf.getvalue()
 
 
@@ -57,15 +71,16 @@ class ImageStack:
 
     def add_frame(self, array: np.ndarray) -> None:
         """Accumulate a new frame (RGB or grayscale uint8/float32)."""
-        if array.ndim == 3:
-            gray = np.mean(array, axis=2).astype(np.float32)
+        data = array.astype(np.float32)
+        if data.ndim == 3 and data.shape[2] >= 3:
+            frame = data[:, :, :3]
         else:
-            gray = array.astype(np.float32)
+            frame = data
 
         if self._sum is None:
-            self._sum = gray.copy()
+            self._sum = frame.copy()
         else:
-            self._sum += gray
+            self._sum += frame
         self._count += 1
 
     def get_preview_jpeg(self) -> bytes:
