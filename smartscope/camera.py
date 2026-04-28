@@ -103,9 +103,9 @@ def write_fits(
     gain: float,
 ) -> None:
     """Write array as a FITS file with observation metadata."""
-    # Convert to grayscale float32 for FITS
-    if array.ndim == 3:
-        data = np.mean(array, axis=2).astype(np.float32)
+    # Preserve colour frames in FITS (channel, y, x). Keep grayscale unchanged.
+    if array.ndim == 3 and array.shape[2] >= 3:
+        data = np.moveaxis(array[:, :, :3], 2, 0).astype(np.float32)
     else:
         data = array.astype(np.float32)
 

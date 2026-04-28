@@ -413,7 +413,7 @@ Commands with no reply (`:RG#`, `:RC#`, `:RM#`, `:RS#`, `:T*#`, `:U#`) pass `fut
 
 ### Camera (`camera.py`)
 
-`Picamera2` is initialised once and kept running.  All camera calls go through a `ThreadPoolExecutor(max_workers=1)`, so the event loop is never blocked and concurrent captures are impossible.  Frames are returned as `HxWx3 uint8` numpy arrays and converted to grayscale `float32` for stacking and FITS output.
+`Picamera2` is initialised once and kept running.  All camera calls go through a `ThreadPoolExecutor(max_workers=1)`, so the event loop is never blocked and concurrent captures are impossible.  Frames are returned as `HxWx3 uint8` numpy arrays and kept in colour (RGB) for stacking, preview rendering, and FITS output.
 
 ### Time reference (`state.py`)
 
