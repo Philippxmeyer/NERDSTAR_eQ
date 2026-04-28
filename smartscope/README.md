@@ -99,12 +99,22 @@ If no USB stick is present, FITS files will not be written but all other feature
 
 ### 5. Set up the WiFi hotspot
 
-Use NetworkManager (pre-installed on Bookworm) to create a persistent access point:
+Use NetworkManager (pre-installed on Bookworm) to create a persistent access point.
+
+> If you see `No suitable device found ... mismatching interface name`, the profile was bound to the wrong interface (often `eth0`). Use the commands below to detect the Wi-Fi device dynamically and recreate the profile.
 
 ```bash
+# Find the first Wi-Fi interface name (for example wlan0)
+WLAN_IF=$(nmcli -t -f DEVICE,TYPE device status | awk -F: '$2=="wifi" {print $1; exit}')
+echo "$WLAN_IF"
+
+# Remove any old/bad profile first (safe if it does not exist)
+sudo nmcli con delete "SmartScope-AP" 2>/dev/null || true
+
+# Create AP profile bound to the actual Wi-Fi interface
 sudo nmcli con add \
   type wifi \
-  ifname wlan0 \
+  ifname "$WLAN_IF" \
   con-name "SmartScope-AP" \
   autoconnect yes \
   ssid "SmartScope" \
@@ -116,6 +126,13 @@ sudo nmcli con add \
   wifi-sec.psk "smartscope"
 
 sudo nmcli con up "SmartScope-AP"
+```
+
+Optional checks:
+
+```bash
+nmcli device status
+nmcli -f GENERAL.STATE,IP4.ADDRESS connection show "SmartScope-AP"
 ```
 
 The Pi will now broadcast **SSID: SmartScope** and hand out DHCP leases in the `192.168.4.x` subnet.  
