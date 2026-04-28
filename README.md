@@ -19,7 +19,7 @@ This revision rebuilds the motion model around **equatorial movement math**:
 - EEPROM-backed configuration (calibration, inversion, backlash)
 - UART command protocol between controller roles
 - LX200-compatible control over USB serial (Stellarmate/INDI compatible)
-- RTC support
+- Software clock seeded by the LX200 host (no battery-backed RTC required)
 
 ---
 
@@ -80,10 +80,16 @@ Implemented LX200 command groups:
   - `:SgDDD*MM[:SS]#` - set longitude (Meade's west-positive form is converted to ISO east-positive on the fly)
   - `:SGsHH.H#` / `:SGsHH:MM#` - UTC offset
   - `:Gt#` / `:Gg#` - read back stored latitude / longitude
-- Host-supplied date / time feed the DS3231 RTC:
+- Host-supplied date / time seed the firmware's software clock (the mount
+  has no hardware RTC; the host is expected to push a fresh sync every
+  ~30 minutes to keep drift small):
   - `:SCMM/DD/YY#` (or `:SCMM/DD/YYYY#`) buffers the date
   - `:SLHH:MM:SS#` completes the pair; the firmware combines both with the
     stored UTC offset and calls `time_utils::setUtcEpoch(...)`
+  - `:GC#` / `:GL#` / `:GG#` read the current local date / local time / UTC
+    offset back from the software clock
+  - Custom: `:GTS#` returns the seconds elapsed since the last `:SC`/`:SL`
+    sync so the host can decide when a re-sync is due
 - Slew-rate / tracking-rate / precision toggles silently accepted: `:RG#`, `:RC#`, `:RM#`, `:RS#`, `:TQ#`, `:TS#`, `:TL#`, `:T+#`, `:T-#`, `:U#`
 - Distance bars: `:D#` (empty when idle, `|#` while slewing)
 - Park / home: `:hP#`, `:hC#`, `:hF#` (slew toward home until both home switches are pressed, then stop)
@@ -112,7 +118,6 @@ Default pin mapping is defined in `config.h`:
 - RA stepper: `EN_RA`, `DIR_RA`, `STEP_RA`
 - Dec stepper: `EN_DEC`, `DIR_DEC`, `STEP_DEC`
 - Link UART: `COMM_TX_PIN`, `COMM_RX_PIN`
-- RTC I2C: `RTC_SDA_PIN`, `RTC_SCL_PIN`
 
 ---
 

@@ -279,7 +279,7 @@ void setup() {
   motion::setMotorInversion(storage::getConfig().motorInvertAz != 0,
                             storage::getConfig().motorInvertAlt != 0);
   motion::setAltitudeLimitsEnabled(true);
-  time_utils::initRtc();
+  time_utils::init();
   comm::initLink();
   lx200_link::init();
 

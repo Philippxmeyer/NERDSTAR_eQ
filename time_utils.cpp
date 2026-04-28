@@ -1,55 +1,44 @@
 #include "time_utils.h"
 
-#include <Wire.h>
-
-#include "config.h"
-
 namespace {
-RTC_DS3231 g_rtc;
-bool g_rtcAvailable = false;
-uint32_t g_fallbackStartMs = 0;
-time_t g_fallbackStartEpoch = 0;
+
+uint32_t g_lastSyncMs = 0;
+time_t g_lastSyncEpoch = 0;
+bool g_hasValidTime = false;
 
 }  // namespace
 
 namespace time_utils {
 
-bool initRtc() {
-  Wire.begin(config::RTC_SDA_PIN, config::RTC_SCL_PIN);
-  g_rtcAvailable = g_rtc.begin();
-  g_fallbackStartMs = millis();
-  g_fallbackStartEpoch = 0;
-
-  if (g_rtcAvailable && g_rtc.lostPower()) {
-    g_rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  }
-  return g_rtcAvailable;
+void init() {
+  g_lastSyncMs = millis();
+  g_lastSyncEpoch = 0;
+  g_hasValidTime = false;
 }
 
-bool rtcAvailable() { return g_rtcAvailable; }
+bool hasValidTime() { return g_hasValidTime; }
 
 time_t currentUtcEpoch() {
-  if (g_rtcAvailable) {
-    return g_rtc.now().unixtime();
+  if (!g_hasValidTime) {
+    return 0;
   }
-
-  uint32_t elapsedSeconds = (millis() - g_fallbackStartMs) / 1000;
-  return g_fallbackStartEpoch + elapsedSeconds;
+  // millis() rolls over after ~49 days; the unsigned subtraction handles the
+  // wrap correctly as long as we never go more than ~49 days without a sync.
+  uint32_t elapsedMs = millis() - g_lastSyncMs;
+  return g_lastSyncEpoch + static_cast<time_t>(elapsedMs / 1000);
 }
 
-bool setUtcEpoch(time_t utcEpoch) {
-  if (g_rtcAvailable) {
-    g_rtc.adjust(DateTime(utcEpoch));
-    return true;
-  }
-  g_fallbackStartEpoch = utcEpoch;
-  g_fallbackStartMs = millis();
-  return false;
+void setUtcEpoch(time_t utcEpoch) {
+  g_lastSyncEpoch = utcEpoch;
+  g_lastSyncMs = millis();
+  g_hasValidTime = true;
 }
 
-DateTime applyTimezone(time_t utcEpoch, int32_t timezoneMinutes) {
-  time_t localEpoch = utcEpoch + static_cast<time_t>(timezoneMinutes) * 60;
-  return DateTime(localEpoch);
+uint32_t secondsSinceLastSync() {
+  if (!g_hasValidTime) {
+    return 0;
+  }
+  return (millis() - g_lastSyncMs) / 1000;
 }
 
 }  // namespace time_utils

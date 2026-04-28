@@ -255,17 +255,45 @@ async def wait_for_slew(
 
 
 async def sync_time_location(state: state_module.ScopeState) -> None:
-    """Push UTC time and observer location to the ESP32 RTC via LX200."""
+    """Push UTC time and observer location to the ESP32's software clock."""
     from state import get_current_utc
     utc = get_current_utc(state)
 
     # UTC offset = 0; we always feed the ESP32 UTC time as "local"
     await _send(":SG+00.0")
-    # Date must be sent before time (:SC buffers, :SL commits both to RTC)
+    # Date must be sent before time (:SC buffers; :SL commits both into the
+    # firmware's software clock — there is no hardware RTC anymore).
     await _send(f":SC{utc.strftime('%m/%d/%y')}")
     await _send(f":SL{utc.strftime('%H:%M:%S')}")
     await _send(f":Sts{_format_lat(state.latitude_deg)}")
     await _send(f":Sg{_format_lon_west(state.longitude_deg)}")
+
+
+async def sync_time_only(state: state_module.ScopeState) -> None:
+    """Push only UTC date/time (no location) to refresh the ESP32 software clock."""
+    from state import get_current_utc
+    utc = get_current_utc(state)
+    await _send(":SG+00.0")
+    await _send(f":SC{utc.strftime('%m/%d/%y')}")
+    await _send(f":SL{utc.strftime('%H:%M:%S')}")
+
+
+async def get_sync_age_seconds() -> Optional[int]:
+    """Query :GTS# — seconds since the firmware last received :SC/:SL.
+
+    Returns None if the firmware does not respond or returns garbage.
+    """
+    try:
+        reply = await _send(":GTS")
+    except Exception as exc:
+        logger.debug("get_sync_age failed: %s", exc)
+        return None
+    if reply is None:
+        return None
+    try:
+        return int(reply.strip())
+    except ValueError:
+        return None
 
 
 async def stop_all() -> None:
