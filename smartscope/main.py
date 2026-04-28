@@ -408,6 +408,20 @@ async def capture(req: CaptureRequest):
     return {"ok": True}
 
 
+@app.post("/capture/cancel")
+async def capture_cancel():
+    """Abort the running capture sequence.
+
+    The frame currently in flight on the camera executor still finishes (we
+    cannot interrupt picamera2 mid-exposure), but no further frames are
+    queued and the stack / frame counter are kept as-is.
+    """
+    global _capture_enabled
+    was_active = _capture_enabled
+    _capture_enabled = False
+    return {"ok": True, "was_active": was_active, "frames_captured": _frames_captured}
+
+
 # ---------------------------------------------------------------------------
 # Plate solve
 # ---------------------------------------------------------------------------

@@ -256,6 +256,11 @@ Set exposure time, analogue gain, and frame count, then tap **▶ Capture**.
 Frames are written as FITS files to `/mnt/storage` and added to the running stack.  
 The live preview updates every 2 seconds with a percentile-stretched JPEG of the stack.
 
+While a capture sequence is running the **▶ Capture** button is replaced by
+**■ Cancel**, which calls `POST /capture/cancel` and stops the loop after the
+in-flight frame finishes.  Frames already added to the stack are kept; use
+**Stack → Reset** to clear them.
+
 ### Plate solve
 
 Tap **⊕ Solve** to capture a fresh frame and run ASTAP.  On success:
@@ -332,6 +337,7 @@ Returns a JSON array of matching catalog objects.  Planet positions are calculat
 | Method | Path | Body |
 |---|---|---|
 | `POST` | `/capture` | `{"exposure": 2.0, "gain": 1.0, "frames": 100}` |
+| `POST` | `/capture/cancel` | _(no body)_ – abort the running capture sequence |
 | `POST` | `/solve` | _(no body)_ – captures a frame and runs ASTAP |
 | `POST` | `/preview/settings` | `{"mode": "live", "auto": true, "exposure_s": 0.2, "gain": 1.0}` (any subset) |
 

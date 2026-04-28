@@ -330,9 +330,11 @@
     </div>
   </div>
   <div class="exp-actions" style="margin-top:10px;">
-    <button onclick="startCapture()">▶ Capture</button>
+    <button id="btn-capture" onclick="startCapture()">▶ Capture</button>
+    <button id="btn-capture-cancel" onclick="cancelCapture()" class="stop-btn" style="display:none;">■ Cancel</button>
     <button onclick="postJson('/solve')">⊕ Solve</button>
   </div>
+  <div id="capture-progress" class="preview-status" style="margin-top:6px;display:none;"></div>
 </div>
 
 <!-- D-pad -->
@@ -611,6 +613,27 @@ function startCapture() {
   postJson('/capture', { exposure, gain, frames }).catch(e => alert('Capture failed: ' + e.message));
 }
 
+async function cancelCapture() {
+  try {
+    await postJson('/capture/cancel');
+  } catch (e) {
+    alert('Cancel failed: ' + e.message);
+  }
+}
+
+function applyCaptureUI(active, framesCaptured, framesTarget) {
+  document.getElementById('btn-capture').style.display        = active ? 'none' : '';
+  document.getElementById('btn-capture-cancel').style.display = active ? '' : 'none';
+  const prog = document.getElementById('capture-progress');
+  if (active) {
+    const target = framesTarget > 0 ? `/${framesTarget}` : '';
+    prog.textContent = `Capturing… ${framesCaptured}${target} frames`;
+    prog.style.display = '';
+  } else {
+    prog.style.display = 'none';
+  }
+}
+
 // --------------------------------------------------------------------------
 // Stop / park
 // --------------------------------------------------------------------------
@@ -783,6 +806,10 @@ async function pollStatus() {
       trackingEnabled = s.tracking;
       applyTrackingUI();
     }
+
+    // Sync capture progress UI
+    const framesTarget = parseInt(document.getElementById('exp-frames').value) || 0;
+    applyCaptureUI(!!s.capture_active, s.frames_captured || 0, framesTarget);
 
     // Sync preview settings (only if server state actually changed)
     if (s.preview && (
