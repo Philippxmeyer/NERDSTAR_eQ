@@ -71,6 +71,7 @@ apt-get update -qq
 
 PKGS=(
     python3-pip
+    python3-venv
     python3-picamera2
     python3-numpy
     libcamera-apps
@@ -83,27 +84,7 @@ apt-get install -y "${PKGS[@]}"
 info "System packages installed."
 
 # ---------------------------------------------------------------------------
-# 2. Python packages
-# ---------------------------------------------------------------------------
-section "Installing Python packages"
-
-# On Raspberry Pi OS Bookworm, pip installs require --break-system-packages
-# because the OS uses PEP 668 externally-managed environments.
-PIP_FLAGS="--break-system-packages --quiet"
-
-pip3 install $PIP_FLAGS \
-    "fastapi>=0.110.0" \
-    "uvicorn[standard]>=0.29.0" \
-    "sse-starlette>=2.0.0" \
-    "pyserial>=3.5" \
-    "astropy>=6.0" \
-    "Pillow>=10.0" # \
-    # "onoffshim>=0.0.6"
-
-info "Python packages installed."
-
-# ---------------------------------------------------------------------------
-# 3. ASTAP (plate solver)
+# 2. ASTAP (plate solver)
 # ---------------------------------------------------------------------------
 section "Checking ASTAP"
 
@@ -122,7 +103,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 4. Directory structure
+# 3. Directory structure
 # ---------------------------------------------------------------------------
 section "Creating directories"
 
@@ -143,11 +124,11 @@ if ! grep -q '/mnt/storage' /etc/fstab 2>/dev/null; then
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Copy application files (includes data/catalog.xml)
+# 4. Copy application files (includes data/catalog.xml)
 # ---------------------------------------------------------------------------
 section "Copying application files to $APP_DIR"
 
-rsync -a --exclude='.git' --exclude='__pycache__' \
+rsync -a --exclude='.git' --exclude='__pycache__' --exclude='.venv' \
     "$SCRIPT_DIR/" "$APP_DIR/"
 chown -R "$PI_USER:$PI_USER" "$APP_DIR"
 info "Files copied."
@@ -159,6 +140,39 @@ if [[ -f "$CATALOG" ]]; then
 else
     warn "Catalog not found at $CATALOG – upload one via the web UI."
 fi
+
+# ---------------------------------------------------------------------------
+# 5. Python virtual environment + packages
+# ---------------------------------------------------------------------------
+# Bookworm enforces PEP 668, so installing into the system site-packages with
+# --break-system-packages collides with apt-managed distributions that have no
+# RECORD file (e.g. typing_extensions) and aborts. A venv with
+# --system-site-packages keeps access to apt-installed picamera2/numpy/libcamera
+# while letting pip manage the app's own dependencies cleanly.
+section "Setting up Python virtual environment"
+
+VENV_DIR="$APP_DIR/.venv"
+
+if [[ ! -x "$VENV_DIR/bin/python" ]]; then
+    sudo -u "$PI_USER" python3 -m venv --system-site-packages "$VENV_DIR"
+    info "Virtual environment created at $VENV_DIR"
+else
+    info "Reusing existing virtual environment at $VENV_DIR"
+fi
+
+VENV_PIP="$VENV_DIR/bin/pip"
+
+sudo -u "$PI_USER" "$VENV_PIP" install --quiet --upgrade pip
+
+sudo -u "$PI_USER" "$VENV_PIP" install --quiet \
+    "fastapi>=0.110.0" \
+    "uvicorn[standard]>=0.29.0" \
+    "sse-starlette>=2.0.0" \
+    "pyserial>=3.5" \
+    "astropy>=6.0" \
+    "Pillow>=10.0"
+
+info "Python packages installed into venv."
 
 # ---------------------------------------------------------------------------
 # 6. USB serial permissions
