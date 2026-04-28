@@ -97,8 +97,8 @@ pip3 install $PIP_FLAGS \
     "sse-starlette>=2.0.0" \
     "pyserial>=3.5" \
     "astropy>=6.0" \
-    "Pillow>=10.0" \
-    "onoffshim>=0.0.6"
+    "Pillow>=10.0" # \
+    # "onoffshim>=0.0.6"
 
 info "Python packages installed."
 
