@@ -64,6 +64,37 @@ async def capture_frame(exposure_s: float, gain: float) -> np.ndarray:
     return await loop.run_in_executor(_executor, _do_capture, exposure_s, gain)
 
 
+def _do_preview(exposure_s: float, gain: float, auto: bool) -> np.ndarray:
+    """Blocking preview capture used for the live finder/focus stream."""
+    import time as _time
+    cam = _get_camera()
+    if auto:
+        cam.set_controls({"AeEnable": True, "AwbEnable": True})
+        _time.sleep(0.10)
+    else:
+        exp = max(float(exposure_s), 0.0001)
+        cam.set_controls(
+            {
+                "ExposureTime": int(exp * 1_000_000),
+                "AnalogueGain": float(max(gain, 1.0)),
+                "AeEnable": False,
+                "AwbEnable": False,
+            }
+        )
+        # Short settle: enough for the next frame, but cap so the SSE stays
+        # responsive even when the user picks long manual exposures.
+        _time.sleep(min(exp + 0.10, 1.0))
+    return cam.capture_array()
+
+
+async def capture_preview(
+    exposure_s: float = 0.2, gain: float = 1.0, auto: bool = True
+) -> np.ndarray:
+    """Capture a single live-preview frame (auto or manual exposure)."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(_executor, _do_preview, exposure_s, gain, auto)
+
+
 def write_fits(
     array: np.ndarray,
     path: str,
