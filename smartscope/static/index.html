@@ -48,6 +48,8 @@
       position: sticky;
       top: 0;
       z-index: 100;
+      cursor: pointer;
+      text-decoration: underline;
     }
 
     /* ---------- status bar ---------- */
@@ -261,7 +263,9 @@
 </div>
 
 <!-- Warning banner -->
-<div id="warning">⚠ Time &amp; location not initialised – pointing may be inaccurate</div>
+<div id="warning" onclick="openOverlay()" title="Open initialisation">
+  ⚠ Time &amp; location not initialised – pointing may be inaccurate (tap to initialise)
+</div>
 
 <!-- Status bar -->
 <div id="statusbar">
