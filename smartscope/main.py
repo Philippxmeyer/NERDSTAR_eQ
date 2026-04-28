@@ -127,10 +127,10 @@ async def time_resync_loop() -> None:
 
 
 async def capture_loop() -> None:
-    """Capture frames continuously while tracking is enabled."""
+    """Capture frames continuously while capture is enabled."""
     global _capture_enabled, _frames_captured, _last_solve_fits
     while True:
-        if scope_state.tracking and _capture_enabled:
+        if _capture_enabled:
             params = _capture_params.copy()
             try:
                 array = await camera.capture_frame(params["exposure"], params["gain"])
