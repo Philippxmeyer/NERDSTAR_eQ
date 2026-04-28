@@ -3,7 +3,7 @@ Description=SmartScope
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/python3 /home/pi/smartscope/main.py
+ExecStart=/home/pi/smartscope/.venv/bin/python /home/pi/smartscope/main.py
 WorkingDirectory=/home/pi/smartscope
 Restart=always
 RestartSec=3
