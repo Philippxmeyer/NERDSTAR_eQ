@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
@@ -61,11 +61,30 @@
       display: flex;
       flex-wrap: wrap;
       gap: 6px 14px;
+      align-items: center;
     }
     .sb-item { color: var(--dim); }
     .sb-item span { color: var(--text2); }
     .sb-ok  { color: var(--green2) !important; }
     .sb-bad { color: var(--accent2) !important; }
+    .sb-dim { color: var(--dim) !important; }
+
+    #btn-settings {
+      margin-left: auto;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 16px;
+      color: var(--dim);
+      min-height: 32px;
+      min-width: 32px;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    #btn-settings:active { background: var(--bg3); color: var(--text2); }
 
     /* ---------- layout ---------- */
     .section {
@@ -112,6 +131,13 @@
       border-color: var(--green2);
       color: var(--green2);
     }
+    button.default-btn {
+      background: var(--bg3);
+      border-color: var(--yellow);
+      color: var(--yellow);
+      font-size: 14px;
+    }
+    button.default-btn:active { background: var(--accent); }
 
     /* ---------- inputs ---------- */
     input[type=text], input[type=number], input[type=datetime-local] {
@@ -130,8 +156,8 @@
     input:focus { border-color: var(--accent); }
     label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 4px; }
 
-    /* ---------- modal (init dialog) ---------- */
-    #overlay {
+    /* ---------- modal (init / setup dialog) ---------- */
+    #overlay, #setup-overlay {
       display: none;
       position: fixed; inset: 0;
       background: rgba(0,0,0,.92);
@@ -139,7 +165,11 @@
       overflow-y: auto;
       padding: 20px 16px;
     }
-    #overlay.visible { display: flex; align-items: flex-start; justify-content: center; }
+    #overlay.visible, #setup-overlay.visible {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+    }
     .modal {
       background: var(--bg2);
       border: 1px solid var(--border);
@@ -150,8 +180,24 @@
     }
     .modal h2 { color: var(--text2); margin-bottom: 16px; font-size: 18px; }
     .form-row { margin-bottom: 14px; }
-    .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
-    .modal-actions button { flex: 1; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+    .modal-actions button { flex: 1; min-width: 80px; }
+
+    .geo-status-box {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: var(--dim);
+      margin-bottom: 14px;
+    }
+    .geo-status-box.ok   { border-color: var(--green2); color: var(--green2); }
+    .geo-status-box.fail { border-color: var(--yellow); color: var(--yellow); }
+
+    .setup-divider { border-top: 1px solid var(--border); margin: 16px 0; }
+    .setup-info { font-size: 12px; color: var(--dim); margin-bottom: 12px; }
+    .setup-saved { font-size: 12px; color: var(--text2); margin-bottom: 12px; }
 
     /* ---------- search ---------- */
     #search-results {
@@ -238,33 +284,56 @@
 </head>
 <body>
 
-<!-- Init overlay -->
+<!-- Location init overlay -->
 <div id="overlay">
   <div class="modal">
-    <h2>Initialise SmartScope</h2>
+    <h2>Standort einrichten</h2>
+    <div id="geo-status" class="geo-status-box">GPS wird abgefragt…</div>
     <div class="form-row">
-      <label>UTC Time</label>
-      <input type="datetime-local" id="init-utc" step="1">
+      <label>Breite °N</label>
+      <input type="number" id="init-lat" step="0.0001" placeholder="50.7354">
     </div>
     <div class="form-row">
-      <label>Latitude °N</label>
-      <input type="number" id="init-lat" step="0.0001" placeholder="48.1351">
+      <label>Länge °E (Ost positiv)</label>
+      <input type="number" id="init-lon" step="0.0001" placeholder="7.9671">
     </div>
-    <div class="form-row">
-      <label>Longitude °E</label>
-      <input type="number" id="init-lon" step="0.0001" placeholder="11.5820">
-    </div>
-    <div id="geo-status" style="font-size:12px;color:var(--dim);margin-bottom:8px;"></div>
     <div class="modal-actions">
-      <button class="ok-btn" onclick="submitInit()">Initialise</button>
-      <button onclick="closeOverlay()">Skip</button>
+      <button class="default-btn" onclick="useDefaultLocation()">Standard</button>
+      <button class="ok-btn" onclick="submitLocationInit()">Übernehmen</button>
+      <button onclick="closeOverlay()">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Setup overlay -->
+<div id="setup-overlay">
+  <div class="modal">
+    <h2>⚙ Einstellungen</h2>
+
+    <div class="section-title">Standard-Standort</div>
+    <div class="setup-info">Wird als Fallback verwendet, wenn kein GPS verfügbar ist.</div>
+    <div class="form-row">
+      <label>Breite °N</label>
+      <input type="number" id="setup-lat" step="0.0001" placeholder="50.7354">
+    </div>
+    <div class="form-row">
+      <label>Länge °E (Ost positiv)</label>
+      <input type="number" id="setup-lon" step="0.0001" placeholder="7.9671">
+    </div>
+    <div id="setup-saved-info" class="setup-saved"></div>
+
+    <div class="setup-divider"></div>
+    <div class="modal-actions">
+      <button class="default-btn" onclick="resetSetupToBuiltinDefault()">Werksstandard</button>
+      <button class="ok-btn" onclick="saveSetupLocation()">Speichern</button>
+      <button onclick="closeSetupOverlay()">Schließen</button>
     </div>
   </div>
 </div>
 
 <!-- Warning banner -->
-<div id="warning" onclick="openOverlay()" title="Open initialisation">
-  ⚠ Time &amp; location not initialised – pointing may be inaccurate (tap to initialise)
+<div id="warning" onclick="openOverlay()" title="Standort einrichten">
+  ⚠ Standort nicht gesetzt – Ausrichtung ungenau (Tippen zum Einrichten)
 </div>
 
 <!-- Status bar -->
@@ -273,7 +342,9 @@
   <div class="sb-item">RA <span id="sb-ra">—</span></div>
   <div class="sb-item">Dec <span id="sb-dec">—</span></div>
   <div class="sb-item">ESP32 <span id="sb-esp">—</span></div>
+  <div class="sb-item">Loc <span id="sb-loc">—</span></div>
   <div class="sb-item">Stack <span id="sb-stack">0</span></div>
+  <button id="btn-settings" onclick="openSetupOverlay()" title="Einstellungen">⚙</button>
 </div>
 
 <!-- Search -->
@@ -411,66 +482,203 @@
 'use strict';
 
 // --------------------------------------------------------------------------
+// Constants
+// --------------------------------------------------------------------------
+const DEFAULT_LAT = 50.7354;
+const DEFAULT_LON = 7.9671;
+
+// --------------------------------------------------------------------------
 // State
 // --------------------------------------------------------------------------
 let trackingEnabled = false;
 let currentRate = 'center';
 let previewSrc = '';
 let previewSettings = { mode: 'live', auto: true, exposure_s: 0.2, gain: 1.0 };
+let locationSource = 'none'; // 'none' | 'default' | 'gps' | 'manual'
 
 // --------------------------------------------------------------------------
-// Overlay / Init
+// Stored default location
+// --------------------------------------------------------------------------
+
+function getStoredDefaultLat() {
+  return parseFloat(localStorage.getItem('smartscope_default_lat')) || DEFAULT_LAT;
+}
+
+function getStoredDefaultLon() {
+  return parseFloat(localStorage.getItem('smartscope_default_lon')) || DEFAULT_LON;
+}
+
+function updateLocationStatusBar(source) {
+  locationSource = source;
+  const el = document.getElementById('sb-loc');
+  if (source === 'gps') {
+    el.textContent = 'GPS';
+    el.className = 'sb-ok';
+  } else if (source === 'manual') {
+    el.textContent = 'Manuell';
+    el.className = '';
+  } else if (source === 'default') {
+    el.textContent = 'Standard';
+    el.className = 'sb-dim';
+  } else {
+    el.textContent = '—';
+    el.className = '';
+  }
+}
+
+// --------------------------------------------------------------------------
+// Location init overlay
 // --------------------------------------------------------------------------
 
 function openOverlay() {
   document.getElementById('overlay').classList.add('visible');
-  // Pre-fill UTC
-  const now = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  const local = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-  document.getElementById('init-utc').value = local;
-
-  // Request geolocation
-  const geoStatus = document.getElementById('geo-status');
-  if (navigator.geolocation) {
-    geoStatus.textContent = 'Getting location…';
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        document.getElementById('init-lat').value = pos.coords.latitude.toFixed(6);
-        document.getElementById('init-lon').value = pos.coords.longitude.toFixed(6);
-        geoStatus.textContent = `Location: ${pos.coords.latitude.toFixed(4)}°, ${pos.coords.longitude.toFixed(4)}°`;
-      },
-      () => { geoStatus.textContent = 'Location unavailable – enter manually.'; }
-    );
-  } else {
-    geoStatus.textContent = 'Geolocation not supported – enter manually.';
-  }
+  // Pre-fill only if fields are still empty (GPS may have populated them)
+  const latEl = document.getElementById('init-lat');
+  const lonEl = document.getElementById('init-lon');
+  if (!latEl.value) latEl.value = getStoredDefaultLat();
+  if (!lonEl.value) lonEl.value = getStoredDefaultLon();
 }
 
 function closeOverlay() {
   document.getElementById('overlay').classList.remove('visible');
 }
 
-async function submitInit() {
-  const utcLocal = document.getElementById('init-utc').value;  // local datetime-local
+function useDefaultLocation() {
+  const lat = getStoredDefaultLat();
+  const lon = getStoredDefaultLon();
+  document.getElementById('init-lat').value = lat;
+  document.getElementById('init-lon').value = lon;
+  const geoEl = document.getElementById('geo-status');
+  geoEl.textContent = `Standard: ${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`;
+  geoEl.className = 'geo-status-box';
+}
+
+async function submitLocationInit() {
   const lat = parseFloat(document.getElementById('init-lat').value);
   const lon = parseFloat(document.getElementById('init-lon').value);
-  if (!utcLocal || isNaN(lat) || isNaN(lon)) {
-    alert('Please fill in all fields.');
+  if (isNaN(lat) || isNaN(lon)) {
+    alert('Bitte Koordinaten eingeben.');
     return;
   }
-  // datetime-local gives local time; convert to UTC ISO string
-  const d = new Date(utcLocal);
-  const utcIso = d.toISOString();
-
   try {
-    await postJson('/init', { utc: utcIso, lat, lon });
-    localStorage.setItem('smartscope_initialized', '1');
+    await postJson('/init', { utc: new Date().toISOString(), lat, lon });
+    localStorage.setItem('smartscope_location_source', 'manual');
+    updateLocationStatusBar('manual');
     closeOverlay();
-    document.getElementById('warning').style.display = 'none';
   } catch (e) {
-    alert('Init failed: ' + e.message);
+    alert('Init fehlgeschlagen: ' + e.message);
   }
+}
+
+// --------------------------------------------------------------------------
+// Setup overlay
+// --------------------------------------------------------------------------
+
+function openSetupOverlay() {
+  document.getElementById('setup-overlay').classList.add('visible');
+  document.getElementById('setup-lat').value = getStoredDefaultLat();
+  document.getElementById('setup-lon').value = getStoredDefaultLon();
+  updateSetupSavedInfo();
+}
+
+function closeSetupOverlay() {
+  document.getElementById('setup-overlay').classList.remove('visible');
+}
+
+function updateSetupSavedInfo() {
+  const lat = localStorage.getItem('smartscope_default_lat');
+  const lon = localStorage.getItem('smartscope_default_lon');
+  const el = document.getElementById('setup-saved-info');
+  if (lat && lon) {
+    el.textContent = `Gespeichert: ${parseFloat(lat).toFixed(4)}°N, ${parseFloat(lon).toFixed(4)}°E`;
+  } else {
+    el.textContent = `Werksstandard aktiv: ${DEFAULT_LAT.toFixed(4)}°N, ${DEFAULT_LON.toFixed(4)}°E`;
+  }
+}
+
+function saveSetupLocation() {
+  const lat = parseFloat(document.getElementById('setup-lat').value);
+  const lon = parseFloat(document.getElementById('setup-lon').value);
+  if (isNaN(lat) || isNaN(lon)) {
+    alert('Bitte gültige Koordinaten eingeben.');
+    return;
+  }
+  localStorage.setItem('smartscope_default_lat', lat);
+  localStorage.setItem('smartscope_default_lon', lon);
+  updateSetupSavedInfo();
+  // Apply immediately as current location
+  postJson('/init', { utc: new Date().toISOString(), lat, lon })
+    .then(() => updateLocationStatusBar('manual'))
+    .catch(e => console.warn('Location update failed:', e));
+  closeSetupOverlay();
+}
+
+function resetSetupToBuiltinDefault() {
+  localStorage.removeItem('smartscope_default_lat');
+  localStorage.removeItem('smartscope_default_lon');
+  document.getElementById('setup-lat').value = DEFAULT_LAT;
+  document.getElementById('setup-lon').value = DEFAULT_LON;
+  updateSetupSavedInfo();
+}
+
+// --------------------------------------------------------------------------
+// Startup: auto-sync time + request GPS location
+// --------------------------------------------------------------------------
+
+async function initOnLoad() {
+  // Immediately send UTC + best-known location — no confirmation needed for time
+  const lat = getStoredDefaultLat();
+  const lon = getStoredDefaultLon();
+  try {
+    await postJson('/init', { utc: new Date().toISOString(), lat, lon });
+    const prevSource = localStorage.getItem('smartscope_location_source') || 'default';
+    updateLocationStatusBar(prevSource === 'manual' ? 'manual' : 'default');
+  } catch (e) {
+    // Time or connection failed — show warning so user can retry
+    console.warn('Initial sync failed:', e);
+    document.getElementById('warning').style.display = 'block';
+  }
+
+  // Request GPS in parallel; update server if successful
+  if (!navigator.geolocation) {
+    const geoEl = document.getElementById('geo-status');
+    geoEl.textContent = 'GPS nicht unterstützt – Standard wird verwendet';
+    geoEl.className = 'geo-status-box fail';
+    if (!localStorage.getItem('smartscope_location_source')) {
+      openOverlay();
+    }
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const gpsLat = pos.coords.latitude;
+      const gpsLon = pos.coords.longitude;
+      // Populate init overlay fields with GPS result (visible if overlay is open)
+      document.getElementById('init-lat').value = gpsLat.toFixed(6);
+      document.getElementById('init-lon').value = gpsLon.toFixed(6);
+      const geoEl = document.getElementById('geo-status');
+      geoEl.textContent = `GPS: ${gpsLat.toFixed(4)}°N, ${gpsLon.toFixed(4)}°E`;
+      geoEl.className = 'geo-status-box ok';
+      try {
+        await postJson('/init', { utc: new Date().toISOString(), lat: gpsLat, lon: gpsLon });
+        localStorage.setItem('smartscope_location_source', 'gps');
+        updateLocationStatusBar('gps');
+      } catch (e) {
+        console.warn('GPS location sync failed:', e);
+      }
+    },
+    (err) => {
+      const geoEl = document.getElementById('geo-status');
+      geoEl.textContent = 'GPS nicht verfügbar – Standard wird verwendet';
+      geoEl.className = 'geo-status-box fail';
+      // Show overlay on first use so user can confirm or adjust location
+      if (!localStorage.getItem('smartscope_location_source')) {
+        openOverlay();
+      }
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 }
+  );
 }
 
 // --------------------------------------------------------------------------
@@ -801,7 +1009,7 @@ async function pollStatus() {
       document.getElementById('sb-utc').textContent = s.utc.slice(0,19).replace('T',' ');
     }
 
-    // Warning banner
+    // Warning banner — only show when server has no location set at all
     document.getElementById('warning').style.display =
       s.location_set ? 'none' : 'block';
 
@@ -836,15 +1044,10 @@ async function pollStatus() {
 // --------------------------------------------------------------------------
 
 window.addEventListener('load', () => {
-  // Show init dialog if not yet done
-  if (!localStorage.getItem('smartscope_initialized')) {
-    openOverlay();
-    document.getElementById('warning').style.display = 'block';
-  }
-
   applyPreviewUI();
   startPreviewStream();
   pollStatus();
+  initOnLoad();
 });
 </script>
 </body>
