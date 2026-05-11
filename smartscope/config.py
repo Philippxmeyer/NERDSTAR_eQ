@@ -8,3 +8,10 @@ SERIAL_BAUD      = 9600
 STORAGE_PATH     = "/mnt/storage"
 ASTAP_PATH       = "/usr/bin/astap"
 CATALOG_PATH     = "/home/pi/smartscope/data/catalog.xml"
+
+# Optional shutdown park target.
+# Leave both values as None to disable park motion on shutdown.
+# If both are set, SmartScope will send a regular LX200 GoTo (:Sr/:Sd/:MS)
+# before shutting down the host.
+PARK_RA_HOURS    = None
+PARK_DEC_DEG     = None

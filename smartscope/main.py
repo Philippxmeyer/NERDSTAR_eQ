@@ -71,7 +71,7 @@ _preview_settings: dict = {
 
 
 async def request_shutdown(source: str) -> None:
-    """Park first, then trigger host shutdown (non-blocking park request)."""
+    """Optionally queue park move first, then trigger host shutdown."""
     global _shutdown_requested
     if _shutdown_requested:
         logger.info("Shutdown already requested (source=%s)", source)

@@ -47,6 +47,5 @@ void setAltitudeLimitsEnabled(bool enabled);
 bool setMotorInversion(bool invertAz, bool invertAlt);
 void servicePendingOperations();
 void motorTaskLoop();
-bool areBothHomeSwitchesPressed();
 
 } // namespace motion

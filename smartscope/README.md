@@ -367,7 +367,7 @@ Returns a JSON array of matching catalog objects.  Planet positions are calculat
 | `POST` | `/slew/rate` | `{"rate": "guide"\|"center"\|"find"\|"max"}` |
 | `POST` | `/stop` | _(emergency stop – no body)_ |
 | `POST` | `/park` | _(no body)_ |
-| `POST` | `/shutdown` | _(queues park, then host shutdown)_ |
+| `POST` | `/shutdown` | _(optional park goto, then host shutdown)_ |
 
 ### Stack & catalog
 
@@ -409,7 +409,14 @@ Commands with no reply (`:RG#`, `:RC#`, `:RM#`, `:RS#`, `:T*#`, `:U#`) pass `fut
 
 ### Shutdown flow
 
-`POST /shutdown` and the optional Pimoroni `onoffshim` button both use the same flow: queue LX200 park (`:hP#`) first, then request Linux shutdown (`sudo shutdown -h now`). Park is intentionally non-blocking so shutdown is not delayed indefinitely by missing mount feedback.
+`POST /shutdown` and the optional Pimoroni `onoffshim` button both use the same flow: queue an optional LX200 park move first, then request Linux shutdown (`sudo shutdown -h now`).
+
+Park is configured in `config.py` via:
+
+- `PARK_RA_HOURS`
+- `PARK_DEC_DEG`
+
+If both are set, SmartScope sends a normal GoTo (`:Sr`, `:Sd`, `:MS`) to that target before shutdown. If either value is `None`, park is skipped and shutdown proceeds immediately.
 
 ### Camera (`camera.py`)
 

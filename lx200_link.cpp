@@ -16,7 +16,6 @@ String g_usbCommandBuffer;
 enum class SlewMode : uint8_t {
   kIdle,
   kGoto,
-  kPark,
 };
 
 struct Lx200State {
@@ -346,24 +345,6 @@ void applyManualMotion() {
 }
 
 void updateGotoSlew() {
-  if (g_lx200.slewMode == SlewMode::kPark) {
-    if (motion::areBothHomeSwitchesPressed()) {
-      motion::stopAll();
-      resetSlewState();
-      return;
-    }
-    int64_t raStepsPerDegree = llabs(motion::raDegreesToSteps(1.0) - motion::raDegreesToSteps(0.0));
-    int64_t decStepsPerDegree =
-        llabs(motion::decDegreesToSteps(1.0) - motion::decDegreesToSteps(0.0));
-    motion::setManualStepsPerSecond(Axis::Ra,
-                                    -config::LX200_MANUAL_SPEED_DEG_PER_SEC *
-                                        static_cast<double>(raStepsPerDegree));
-    motion::setManualStepsPerSecond(Axis::Dec,
-                                    -config::LX200_MANUAL_SPEED_DEG_PER_SEC *
-                                        static_cast<double>(decStepsPerDegree));
-    return;
-  }
-
   if (g_lx200.slewMode != SlewMode::kGoto || !g_lx200.hasTargetRa || !g_lx200.hasTargetDec) {
     return;
   }
@@ -692,17 +673,6 @@ void handleLx200Command(const String& cmd, ReplyFn&& reply) {
     return;
   }
   if (cmd == ":U") {
-    return;
-  }
-
-  // Park / home. Move until both home switches are pressed.
-  if (cmd == ":hP" || cmd == ":hC" || cmd == ":hF") {
-    g_lx200.manualRaDir = 0;
-    g_lx200.manualDecDir = 0;
-    applyManualMotion();
-    g_lx200.slewMode = SlewMode::kPark;
-    updateGotoSlew();
-    reply("1");
     return;
   }
 

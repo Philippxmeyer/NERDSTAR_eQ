@@ -316,8 +316,6 @@ void init() {
 
   digitalWrite(axisAz.enPin, LOW);
   digitalWrite(axisAlt.enPin, LOW);
-  pinMode(config::HOME_SWITCH_RA, INPUT_PULLUP);
-  pinMode(config::HOME_SWITCH_DEC, INPUT_PULLUP);
 
   updateNextStep(axisAz, 0);
   updateNextStep(axisAlt, 0);
@@ -571,11 +569,5 @@ bool setMotorInversion(bool invertAz, bool invertAlt) {
 }
 
 void servicePendingOperations() {}
-
-bool areBothHomeSwitchesPressed() {
-  bool raPressed = digitalRead(config::HOME_SWITCH_RA) == config::HOME_SWITCH_ACTIVE_LEVEL;
-  bool decPressed = digitalRead(config::HOME_SWITCH_DEC) == config::HOME_SWITCH_ACTIVE_LEVEL;
-  return raPressed && decPressed;
-}
 
 }  // namespace motion
