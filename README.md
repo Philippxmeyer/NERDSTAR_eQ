@@ -92,7 +92,7 @@ Implemented LX200 command groups:
     sync so the host can decide when a re-sync is due
 - Slew-rate / tracking-rate / precision toggles silently accepted: `:RG#`, `:RC#`, `:RM#`, `:RS#`, `:TQ#`, `:TS#`, `:TL#`, `:T+#`, `:T-#`, `:U#`
 - Distance bars: `:D#` (empty when idle, `|#` while slewing)
-- Park / home: `:hP#`, `:hC#`, `:hF#` (slew toward home until both home switches are pressed, then stop)
+- No LX200 homing/park-to-endstop commands are implemented (`:hP#`, `:hC#`, `:hF#` return `0`).
 
 Declination replies are clamped to `[-90°, +90°]` so INDI never receives
 out-of-range coordinates from an uncalibrated axis.

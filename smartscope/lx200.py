@@ -321,5 +321,10 @@ async def set_slew_rate(rate: str) -> None:
 
 
 async def park() -> None:
-    """:hP#"""
-    await _send(":hP")
+    """Optional park move via regular GoTo target from config."""
+    ra_hours = getattr(config, "PARK_RA_HOURS", None)
+    dec_deg = getattr(config, "PARK_DEC_DEG", None)
+    if ra_hours is None or dec_deg is None:
+        logger.info("Park skipped (no PARK_RA_HOURS/PARK_DEC_DEG configured)")
+        return
+    await goto(float(ra_hours), float(dec_deg))
